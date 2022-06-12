@@ -9,8 +9,8 @@ dotenv.config();
 const db = mysql.createPool({
 	host: '127.0.0.1',
 	port: 3306,
-	user: 'root',
-	password: '',
+	user: process.env.DB_USERNAME || 'root',
+	password: process.env.DB_PASSWORD || '',
 	database: process.env.DB_DATABASE,
 	multipleStatements: true,
 	charset: 'utf8mb4_general_ci',
@@ -34,7 +34,7 @@ client.on('chat', (channel, userstate, message, self) => {
 });
 
 const redisClient = createClient({
-	url: 'redis://127.0.0.1:16379',
+	url: 'redis://' + process.env.REDIS_URL,
 });
 
 redisClient
