@@ -2,7 +2,7 @@ const tmi = require('tmi.js');
 const mysql = require('mysql');
 const dotenv = require('dotenv');
 const { createClient } = require('redis');
-const { RedisCommandQueue, TmiClient, RedisChannelDistributor } = require('../src');
+const { RedisCommandQueue, TmiClient, RedisChannelDistributor } = require('../../src');
 
 dotenv.config();
 

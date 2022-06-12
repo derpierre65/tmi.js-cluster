@@ -1,7 +1,7 @@
 const dotenv = require('dotenv');
 const mysql = require('mysql');
 const { createClient } = require('redis');
-const { RedisCommandQueue, Supervisor, RedisChannelDistributor } = require('../src');
+const { RedisCommandQueue, Supervisor, RedisChannelDistributor } = require('../../src');
 
 dotenv.config();
 
@@ -28,11 +28,11 @@ redisClient
 		});
 
 		manager.on('process.create', (id) => {
-			console.log('[supervisor] neuer prozess erstellt:', id);
+			console.log('[supervisor] new process created, id:', id);
 		});
 
-		manager.on('tmiJoinFail', (...args) => {
-			console.log('[supervisor] channel konnte nicht gejoint werden', ...args);
+		manager.on('tmi.join_error', (...args) => {
+			console.log('[supervisor] can\'t join channel:', ...args);
 		});
 
 		manager.on('ping', () => {

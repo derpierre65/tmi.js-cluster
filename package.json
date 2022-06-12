@@ -1,13 +1,10 @@
 {
   "name": "tmi.js-cluster",
   "version": "1.0.0",
-  "description": "",
+  "description": "tmi.js-cluster is a scalable cluster for tmi.js. This cluster can have multiple supervisors that can be deployed on multiple servers.",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
+  "keywords": ["tmi.js", "twitch", "bot", "cluster"],
+  "author": "derpierre65",
   "license": "ISC",
   "dependencies": {
     "deepmerge": "^4.2.2",

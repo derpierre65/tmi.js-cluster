@@ -1,6 +1,5 @@
 const { createClient } = require('redis');
 
-// example file to join/part channels
 // `queue.js join channel,channel,channel` to join channels
 // `queue.js part channel,channel,channel` to part channels
 
