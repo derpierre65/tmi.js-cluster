@@ -16,6 +16,7 @@ class TmiClient {
 			queueCommands: 0,
 		};
 
+		this._terminating = false;
 		this._disconnectedSince = 0;
 		this._client = options.tmiClient;
 		this._database = options.database;
@@ -26,6 +27,10 @@ class TmiClient {
 		global.tmiClusterConfig = JSON.parse(process.env.TMI_CLUSTER);
 
 		this._interval = setInterval(async () => {
+			if (this._terminating) {
+				return;
+			}
+
 			const currentState = this._client.readyState();
 			const currentChannels = this._client.getChannels();
 
@@ -57,12 +62,14 @@ class TmiClient {
 			}
 		}, global.tmiClusterConfig.process.periodicTimer);
 
-		// TODO on disconnect push all channels into queue?
 		this._client.on('message', () => {
 			this._metrics.messages++;
 		});
 		this._client.on('raw_message', () => {
 			this._metrics.rawMessages++;
+		});
+		this._client.on('disconnected', () => {
+			this.terminate();
 		});
 	}
 
@@ -116,7 +123,7 @@ class TmiClient {
 			this._disconnectedSince = currentDate;
 		}
 
-		if (currentDate - this._disconnectedSince > 10_000) {
+		if (currentDate - this._disconnectedSince > 15_000) {
 			clearInterval(this._interval);
 
 			try {
@@ -133,8 +140,14 @@ class TmiClient {
 	}
 
 	async terminate() {
+		if (this._terminating) {
+			return;
+		}
+
+		this._terminating = true;
+
 		await this._channelDistributor.terminate();
-		await this._channelDistributor.join(this._client.getChannels());
+		await this._channelDistributor.joinNow(this._client.getChannels());
 
 		process.exit(0);
 	}

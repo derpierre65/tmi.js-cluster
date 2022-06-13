@@ -18,7 +18,7 @@ const db = mysql.createPool({
 
 const client = new tmi.Client({
 	connection: {
-		reconnect: true,
+		reconnect: false,
 		reconnectDecay: 1,
 		secure: true,
 		reconnectInterval: 10000,
@@ -29,7 +29,7 @@ const client = new tmi.Client({
 	},
 });
 
-client.on('chat', (channel, userstate, message, self) => {
+client.on('message', (channel, userstate, message, self) => {
 	// console.log(channel);
 });
 

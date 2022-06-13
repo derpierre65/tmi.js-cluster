@@ -7,7 +7,7 @@ class RedisChannelDistributor {
 		this._database = database;
 	}
 
-	join(channels, staleIds) {
+	_join(channels, staleIds, action) {
 		if (!Array.isArray(channels)) {
 			channels = [channels];
 		}
@@ -18,10 +18,18 @@ class RedisChannelDistributor {
 			return;
 		}
 
-		return this._commandQueue.push(Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.COMMAND_JOIN, {
+		return this._commandQueue[action](Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.COMMAND_JOIN, {
 			channels,
 			staleIds,
 		});
+	}
+
+	join(channels, staleIds) {
+		return this._join(channels, staleIds, 'push');
+	}
+
+	joinNow(channels, staleIds) {
+		return this._join(channels, staleIds, 'unshift');
 	}
 
 	async flushStale(channels, staleIds) {

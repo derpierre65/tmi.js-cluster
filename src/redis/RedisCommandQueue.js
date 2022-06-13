@@ -3,6 +3,14 @@ class RedisCommandQueue {
 		this._redisClient = redisClient;
 	}
 
+	unshift(name, command, options) {
+		return this._redisClient.lPush(this.redisPrefix + 'commands:' + name, JSON.stringify({
+			time: Date.now(),
+			command,
+			options,
+		}));
+	}
+
 	push(name, command, options) {
 		return this._redisClient.rPush(this.redisPrefix + 'commands:' + name, JSON.stringify({
 			time: Date.now(),
