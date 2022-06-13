@@ -24,7 +24,11 @@ table {
 			}
 
 			&:nth-child(odd) {
-				@apply bg-stone-800
+				@apply bg-stone-800 border border-l-0 border-r-0 border-stone-500;
+
+				&:last-of-type {
+					@apply border-b-0;
+				}
 			}
 		}
 

@@ -23,25 +23,31 @@
 				</div>
 			</div>
 
-			<h2 class="text-3xl font-bold mb-4">Cluster Metrics</h2>
-			<div class="bg-purple-800 rounded-lg p-4 md:p-8 shadow-xl mb-10">
-				<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-					<div v-for="i in 8" class="bg-stone-800 p-4 rounded-lg flex-1">
-						<div>
-							<h4 class="text-xl font-bold">45</h4>
-							<h5 class="text-lg text-neutral-300">IRC Messages/s</h5>
+			<template v-if="false">
+				<h2 class="text-3xl font-bold mb-4">Cluster Metrics</h2>
+				<div class="bg-purple-800 rounded-lg p-4 md:p-8 shadow-xl mb-10">
+					<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+						<div v-for="i in 8" class="bg-stone-800 p-4 rounded-lg flex-1">
+							<div>
+								<h4 class="text-xl font-bold">45</h4>
+								<h5 class="text-lg text-neutral-300">IRC Messages/s</h5>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
+			</template>
 
 			<h2 class="text-3xl font-bold mb-4">Supervisors</h2>
 			<template v-if="supervisors === null">
-				<div class="rounded-lg shadow-xl mb-8" v-for="supervisor in 1" :key="supervisor">
-					<div class="font-bold text-lg bg-purple-700 p-2 rounded-t-lg">
-						<div class="bg-stone-900 rounded-lg h-6 w-1/3" />
-					</div>
+				<div class="rounded-lg shadow-xl mb-8" v-for="supervisor in 3" :key="supervisor">
 					<table class="w-full">
+						<thead class="font-bold text-lg bg-purple-700 p-2">
+						<tr>
+							<th class="text-left" colspan="5">
+								<div class="bg-stone-900 rounded-lg h-6 w-1/3" />
+							</th>
+						</tr>
+						</thead>
 						<thead>
 						<tr>
 							<th class="text-left">UUID</th>
@@ -52,8 +58,8 @@
 						</tr>
 						</thead>
 						<tbody>
-						<tr v-for="row in 6">
-							<td v-for="col in 5">
+						<tr v-for="row in 6" :key="row">
+							<td v-for="col in 5" :key="col">
 								<div class="bg-stone-900 rounded-lg h-6 w-full" />
 							</td>
 						</tr>
@@ -62,8 +68,14 @@
 				</div>
 			</template>
 			<div v-else class="rounded-lg shadow-xl mb-8" v-for="supervisor in supervisors" :key="supervisor.id">
-				<h3 class="font-bold text-lg bg-purple-700 p-2 rounded-t-lg"><strong>{{supervisor.id}}</strong> <small>- {{calculateUptime(supervisor.created_at)}}</small></h3>
 				<table class="w-full">
+					<thead class="font-bold text-lg bg-purple-700 p-2">
+					<tr>
+						<th class="text-left" colspan="5">
+							<strong>{{supervisor.id}}</strong> <small>- {{calculateUptime(supervisor.created_at)}}</small>
+						</th>
+					</tr>
+					</thead>
 					<thead>
 					<tr>
 						<th class="text-left">UUID</th>
@@ -74,17 +86,21 @@
 					</tr>
 					</thead>
 					<tbody>
-					<tr v-for="process in supervisor.processes">
+					<tr v-for="process in supervisor.processes" :key="process.id">
 						<td>{{process.id}}</td>
 						<td>{{calculateUptime(process.last_ping_at)}} ago</td>
 						<td>{{calculateUptime(process.created_at)}}</td>
-						<td class="text-right">{{process.metrics.channels}}</td>
-						<td class="text-right">{{process.metrics.memory}}</td>
+						<td class="text-right">{{formatNumber(process.metrics.channels)}}</td>
+						<td class="text-right">{{formatNumber(process.metrics.memory)}} MB</td>
 					</tr>
 					</tbody>
 				</table>
 			</div>
 		</main>
+
+		<footer class="text-center mb-4">
+			<small>Copyright &copy; {{ year }} derpierre65 & Contributors</small>
+		</footer>
 	</div>
 </template>
 
@@ -95,6 +111,7 @@ export default {
 	data() {
 		return {
 			supervisors: null,
+			year: (new Date()).getFullYear(),
 		};
 	},
 	created() {
@@ -102,9 +119,15 @@ export default {
 
 		window.setInterval(() => {
 			this.loadStatistics();
-		}, 2_000);
+		}, 3_000);
 	},
 	methods: {
+		formatNumber(value, maxDigits = 0) {
+			return parseFloat(value).toLocaleString('en', {
+				minimumFractionDigits: 0,
+				maximumFractionDigits: maxDigits,
+			});
+		},
 		loadStatistics() {
 			axios
 				.get('/statistics/')
@@ -121,7 +144,6 @@ export default {
 			const uptime = [];
 
 			let seconds = Math.floor((now - created) / 1_000);
-
 			if (seconds > 60) {
 				seconds = this.addUptimeValue(seconds, 86_400, uptime, 'day', 'days');
 				seconds = this.addUptimeValue(seconds, 3_600, uptime, 'hour', 'hours');
@@ -135,10 +157,10 @@ export default {
 
 			return [uptime.join(', '), popped].filter((value) => value).join(' and ');
 		},
-		addUptimeValue(value, divider, uptime, single, multiple) {
+		addUptimeValue(value, divider, uptime, singular, plural) {
 			if (value >= divider) {
 				const count = Math.floor(value / divider);
-				uptime.push(`${count} ${count === 1 ? single : multiple}`);
+				uptime.push(`${count} ${count === 1 ? singular : plural}`);
 
 				value -= count * divider;
 			}

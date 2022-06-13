@@ -7,21 +7,16 @@
     <title>tmi.js Cluster</title>
 
     <link rel="canonical" href="{{ request()->url() }}">
-
-    <!-- Fonts & Core CSS -->
     <link href="{{ 'tmi-cluster.css' }}" rel="stylesheet">
 
-    <!-- Theme -->
     <meta name="theme-color" content="#6441A4">
 </head>
 <body>
     <div id="app">
         @yield('content')
 
-        <footer class="text-muted text-center mb-5">
-            <small>
-                Copyright &copy; {{ date('Y') }} derpierre65 & Contributors
-            </small>
+        <footer class="text-center mb-4">
+            <small>Copyright &copy; {{ date('Y') }} derpierre65 & Contributors</small>
         </footer>
     </div>
 
