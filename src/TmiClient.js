@@ -48,12 +48,24 @@ class TmiClient {
 			});
 
 			if (this._database) {
+				let metrics = '{}';
+				if ( global.tmiClusterConfig.metrics.enabled ) {
+					if (global.tmiClusterConfig.metrics.memory) {
+						this._metrics.memory = process.memoryUsage().heapUsed / 1024 / 1024;
+					}
+
+					this._metrics.channels = currentChannels.length;
+
+					metrics = JSON.stringify(this._metrics);
+				}
+
+				const now = new Date();
 				this._database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
 					currentState,
 					JSON.stringify(currentChannels),
-					new Date(),
-					new Date(),
-					JSON.stringify(this._metrics),
+					now,
+					now,
+					metrics,
 					process.env.PROCESS_ID,
 				], (error) => {
 					if (error) {
@@ -63,12 +75,15 @@ class TmiClient {
 			}
 		}, global.tmiClusterConfig.process.periodicTimer);
 
-		this._client.on('message', () => {
-			this._metrics.messages++;
-		});
-		this._client.on('raw_message', () => {
-			this._metrics.rawMessages++;
-		});
+		if (global.tmiClusterConfig.metrics.enabled) {
+			this._client.on('message', () => {
+				this._metrics.messages++;
+			});
+			this._client.on('raw_message', () => {
+				this._metrics.rawMessages++;
+			});
+		}
+
 		this._client.on('disconnected', () => {
 			this.terminate();
 		});

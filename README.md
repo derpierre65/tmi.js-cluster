@@ -37,6 +37,10 @@ Each and every option listed below is optional.
 - `keyLength`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
 - `stale`: Number - After `stale` seconds the supervisor will be destroyed if the last ping is too long ago. (Default: `120`)
 
+`metrics`:
+- `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`) 
+- `memory`: Boolean - If `true`, then the current memory (MB) will be saved into the metrics object. (Default: `true`)
+
 `process`:
 - `stale`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
 - `periodicTimer`: Number - After `stale` seconds the supervisor will be destroyed if the last ping is too long ago. (Default: `120`)

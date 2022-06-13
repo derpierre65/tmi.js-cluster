@@ -27,6 +27,10 @@ class Supervisor extends EventEmitter {
 				periodicTimer: 2_000,
 				timeout: 60_000,
 			},
+			metrics: {
+				enabled: true,
+				memory: true,
+			},
 			autoScale: {
 				processes: {
 					min: 2,
