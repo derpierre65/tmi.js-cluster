@@ -48,9 +48,10 @@ class TmiClient {
 			});
 
 			if (this._database) {
-				this._database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, last_ping_at = ?, metrics = ? WHERE id = ?', [
+				this._database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
 					currentState,
 					JSON.stringify(currentChannels),
+					new Date(),
 					new Date(),
 					JSON.stringify(this._metrics),
 					process.env.PROCESS_ID,
