@@ -49,7 +49,7 @@ class TmiClient {
 
 			if (this._database) {
 				let metrics = '{}';
-				if ( global.tmiClusterConfig.metrics.enabled ) {
+				if (global.tmiClusterConfig.metrics.enabled) {
 					if (global.tmiClusterConfig.metrics.memory) {
 						this._metrics.memory = process.memoryUsage().heapUsed / 1024 / 1024;
 					}
@@ -97,28 +97,32 @@ class TmiClient {
 			this._metrics.queueCommands++;
 
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
-				this._client.join(command.options.channel).catch((error) => {
-					setTimeout(() => {
-						if (this._client.getChannels().includes(command.options.channel)) {
-							return;
-						}
+				this._client
+				    .join(command.options.channel)
+				    .catch((error) => {
+					    setTimeout(() => {
+						    if (this._client.getChannels().includes(command.options.channel)) {
+							    return;
+						    }
 
-						process.send({
-							event: 'tmi.join_error',
-							channel: command.options.channel,
-							error,
-						});
-					}, 1_000);
-				});
+						    process.send({
+							    event: 'tmi.join_error',
+							    channel: command.options.channel,
+							    error,
+						    });
+					    }, 1_000);
+				    });
 			}
 			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
-				this._client.part(command.options.channel).catch((error) => {
-					process.send({
-						event: 'tmi.part_error',
-						channel: command.options.channel,
-						error,
-					});
-				});
+				this._client
+				    .part(command.options.channel)
+				    .catch((error) => {
+					    process.send({
+						    event: 'tmi.part_error',
+						    channel: command.options.channel,
+						    error,
+					    });
+				    });
 			}
 		}
 	}

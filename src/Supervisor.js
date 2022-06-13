@@ -90,9 +90,14 @@ class Supervisor extends EventEmitter {
 				}
 
 				return new Promise((resolve, reject) => {
+					const now = new Date();
+
 					this.database.query(
-						'INSERT INTO tmi_cluster_supervisors (id, last_ping_at, metrics, options) VALUES (?)',
-						[[this.id, new Date(), '{}', '{}']],
+						'INSERT INTO tmi_cluster_supervisors (??) VALUES (?)',
+						[
+							['id', 'last_ping_at', 'metrics', 'options', 'created_at'],
+							[this.id, now, '{}', '{}', now],
+						],
 						(error) => {
 							if (error) {
 								console.error('The supervisor couldn\'t be created.');

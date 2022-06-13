@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body, html {
+	@apply bg-stone-900 text-neutral-200;
+
+	height: 100%;
+}
+
+table {
+	thead {
+		@apply bg-stone-700;
+
+		th {
+			@apply px-2 py-1 font-bold text-sm;
+		}
+	}
+
+	tbody {
+		tr {
+			&:nth-child(even) {
+				@apply bg-stone-600;
+			}
+
+			&:nth-child(odd) {
+				@apply bg-stone-800
+			}
+		}
+
+		td {
+			@apply px-2 py-1;
+		}
+	}
+}
+
+.dot {
+	width: 12px;
+	height: 12px;
+	display: inline-block;
+	border-radius: 50%;
+	position: relative;
+	-ms-transform: none;
+	transform: none;
+
+	@apply bg-green-600 text-green-600;
+
+	&.is-warning {
+		@apply bg-yellow-600 text-yellow-600;
+	}
+
+	&.is-error {
+		@apply bg-red-600 text-red-600;
+	}
+
+	&.is-unknown {
+		@apply bg-gray-600 text-gray-600;
+	}
+
+	&::after {
+		content: '';
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		background: currentColor;
+		animation: pulse 2s infinite;
+		opacity: 1;
+		border-radius: 50%;
+		top: 0;
+		left: 0;
+	}
+
+	&.is-big {
+		width: 60px;
+		height: 60px;
+
+		&::after {
+			animation: pulseBig 2s infinite;
+		}
+	}
+}
+
+@keyframes pulse {
+	0% {
+		opacity: 0.5;
+	}
+	70% {
+		opacity: 0;
+		transform: scale(2.5);
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes pulseBig {
+	0% {
+		opacity: 0.5;
+	}
+	70% {
+		opacity: 0;
+		transform: scale(1.6);
+	}
+	100% {
+		opacity: 0;
+	}
+}
