@@ -1,13 +1,11 @@
 const tmi = require('tmi.js');
 const mysql = require('mysql');
-const dotenv = require('dotenv');
 const { createClient } = require('redis');
 const { RedisCommandQueue, TmiClient, RedisChannelDistributor } = require('../../src');
-
-dotenv.config();
+const fs = require('fs');
 
 const db = mysql.createPool({
-	host: '127.0.0.1',
+	host: process.env.DB_HOST,
 	port: 3306,
 	user: process.env.DB_USERNAME || 'root',
 	password: process.env.DB_PASSWORD || '',
@@ -31,7 +29,9 @@ const client = new tmi.Client({
 });
 
 client.on('message', (channel, userstate, message, self) => {
-	// console.log(channel);
+	fs.writeFile('channels/'+channel + '.log', [(new Date()).toISOString(), message].join(': ') + "\n", {flag: 'a+'}, function (err) {
+		if (err) return console.log(err);
+	});
 });
 
 const redisClient = createClient({

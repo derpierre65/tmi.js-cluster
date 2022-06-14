@@ -15,10 +15,10 @@ class SubProcess {
 		}
 
 		this._process = childProcess.fork(this._supervisor.modulePath, {
-			env: {
+			env: Object.assign({}, process.env, {
 				PROCESS_ID: this.id,
 				TMI_CLUSTER: JSON.stringify(global.tmiClusterConfig),
-			},
+			}),
 		});
 
 		this._process.on('message', (data) => {

@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tmi-env
+  namespace: tmi-cluster
+data:
+#  DB_HOST: bnVsbA==
+#  DB_PORT: bnVsbA==
+#  DB_USERNAME: bnVsbA==
+#  DB_PASSWORD: bnVsbA==
+#  DB_DATABASE: bnVsbA==
+#  REDIS_URL: bnVsbA==
+#  TMI_USERNAME:
+#  TMI_PASSWORD:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tmi-supervisor
+  namespace: tmi-cluster
+spec:
+  selector:
+    matchLabels:
+      app: tmi-supervisor
+  template:
+    metadata:
+      labels:
+        app: tmi-supervisor
+    spec:
+      containers:
+        - envFrom:
+            - secretRef:
+                name: tmi-env
+                optional: false
+          image: localhost:32000/tmi-cluster
+          imagePullPolicy: Always
+          name: tmi-supervisor

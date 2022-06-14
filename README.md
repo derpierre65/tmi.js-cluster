@@ -79,6 +79,10 @@ Each and every option listed below is optional.
         "periodicTimer": 2000,
         "timeout": 60000
     },
+    "metrics": {
+        "enabled": true,
+        "memory": true
+    },
     "autoScale": {
         "processes": {
             "min": 2,
