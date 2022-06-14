@@ -50,6 +50,7 @@
 						</thead>
 						<thead>
 						<tr>
+							<th class="text-left">State</th>
 							<th class="text-left">UUID</th>
 							<th class="text-left">Last Ping</th>
 							<th class="text-left">Uptime</th>
@@ -59,7 +60,7 @@
 						</thead>
 						<tbody>
 						<tr v-for="row in 6" :key="row">
-							<td v-for="col in 5" :key="col">
+							<td v-for="col in 6" :key="col">
 								<div class="bg-stone-900 rounded-lg h-6 w-full" />
 							</td>
 						</tr>
@@ -79,6 +80,7 @@
 					<thead>
 					<tr>
 						<th class="text-left">UUID</th>
+						<th class="text-left">State</th>
 						<th class="text-left">Last Ping</th>
 						<th class="text-left">Uptime</th>
 						<th class="text-right">Channels</th>
@@ -88,10 +90,11 @@
 					<tbody>
 					<tr v-for="process in supervisor.processes" :key="process.id">
 						<td>{{process.id}}</td>
+						<td>{{process.state}}</td>
 						<td>{{calculateUptime(process.last_ping_at)}} ago</td>
 						<td>{{calculateUptime(process.created_at)}}</td>
-						<td class="text-right">{{formatNumber(process.metrics.channels)}}</td>
-						<td class="text-right">{{formatNumber(process.metrics.memory)}} MB</td>
+						<td class="text-right">{{formatNumber(process.metrics.channels || 0)}}</td>
+						<td class="text-right">{{formatNumber(process.metrics.memory || 0)}} MB</td>
 					</tr>
 					</tbody>
 				</table>
