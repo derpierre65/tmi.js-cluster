@@ -1,17 +1,23 @@
-# Cluster System for a [tmi.js](https://github.com/tmijs/tmi.js) Twitch Bots
+# Cluster System for [tmi.js](https://github.com/tmijs/tmi.js) Twitch Bots
 
+![Issues](https://img.shields.io/github/license/derpierre65/tmi.js-cluster)
+![Issues](https://img.shields.io/github/issues/derpierre65/tmi.js-cluster)
+[![Discord](https://discordapp.com/api/guilds/933758189491613707/embed.png?style=shield)](https://discord.gg/Zg4VQXZ7MG)
 
 ## Introduction
 
-tmi.js-cluster is a scalable cluster for tmi.js. This cluster can have multiple supervisors that can be deployed on multiple servers.  
-The cluster store its data into a database and use a redis connection for the IRC command queue to join/part channels and write messages.
+tmi.js-cluster is a scalable cluster for [tmi.js](https://github.com/tmijs/tmi.js). This cluster can have multiple supervisors that can be deployed on multiple servers.  
+The cluster store its data into a database and use a redis connection for the IRC command queue to join/part channels and write messages.  
+
+**WIP - Not ready for production**
 
 ## Features
 
 - Supervisor can deployed on multiple servers.
 - Use the up-to-date [tmi.js](https://github.com/tmijs/tmi.js) client.
+- Monitoring dashboard.
 
-## Events
+## Supervisor Events
 
 | Event                | Description                                      | Parameters           |
 |----------------------|--------------------------------------------------|----------------------|
@@ -52,8 +58,8 @@ Each and every option listed below is optional.
     - `max`: Number - The maximum of processes. (Default: `20`)
   - `thresholds`:
     - `channels`: Number - The maximum target of channels per process. (Default: `1000`)
-    - `scaleUp`: Number - TODO (Default: `75`)
-    - `scaleDown`: Number - TODO (Default: `50`)
+    - `scaleUp`: Number - If a supervisor reach more than `scaleUp`% channels then a new process will be created. (Default: `75`)
+    - `scaleDown`: Number - If a supervisor reach less than `scaleUp`% channels then one process will be terminated. (Default: `50`)
 
 `throttle`:
 - `join`:
