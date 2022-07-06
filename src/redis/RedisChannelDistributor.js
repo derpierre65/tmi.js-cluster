@@ -205,13 +205,16 @@ class RedisChannelDistributor {
 	async terminate() {
 		// TODO remove locks
 
+		console.debug('[RedisChannelDistributor] Terminate');
+
 		await new Promise((resolve, reject) => {
 			this._database.query(`UPDATE tmi_cluster_supervisor_processes SET state = ? WHERE id = ?`, [
 				'TERMINATING',
 				process.env.PROCESS_ID,
 			], (error, rows) => {
 				if (error) {
-					return reject(error);
+					console.error('[RedisChannelDistributor] Fail to update state.', error);
+					return;
 				}
 
 				resolve(rows);
