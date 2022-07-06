@@ -8,6 +8,8 @@ class SignalListener extends EventEmitter {
 		this._pendingSignals = [];
 		this._executingSignal = null;
 
+		console.debug(`[tmi.js-cluster] [${process.env.TMI_CLUSTER_ROLE}] Signal listener initialized.`);
+
 		// set signals
 		signalProcess.on('SIGINT', () => this._queueSignal('terminate'));
 		signalProcess.on('SIGTERM', () => this._queueSignal('terminate'));
@@ -23,31 +25,31 @@ class SignalListener extends EventEmitter {
 			return;
 		}
 
+		console.debug(`[tmi.js-cluster] [${process.env.TMI_CLUSTER_ROLE}] Queued process signal ${signal}.`);
+
 		this._pendingSignals.push(signal);
 
 		// execute the first signal if something is in the queue.
-		if (this._executingSignal === null) {
-			this._executeSignal(this._pendingSignals[0]);
-		}
+		this._executeNextSignal();
 	}
 
-	_executeSignal(nextSignal) {
-		if (!nextSignal || this._executingSignal) {
+	_executeNextSignal() {
+		const signal = this._pendingSignals[0];
+
+		if (this._executingSignal || !signal) {
 			return;
 		}
 
-		let signal = this._pendingSignals[0];
 		this._executingSignal = signal;
 
-		const result = (this._executor[signal] ? this._executor[signal]() : Promise.resolve()) || Promise.resolve();
+		const result = (typeof this._executor[signal] === 'function' ? this._executor[signal]() : Promise.resolve()) || Promise.resolve();
 
 		result
 			.then(() => {
 				this._pendingSignals.splice(0, 1);
 				this._executingSignal = null;
 
-				// execute the next signal
-				this._executeSignal(this._pendingSignals[0] || null);
+				this._executeNextSignal();
 			})
 			.catch((error) => {
 				// TODO debug, i dont know what i can do here, if i re-call it can fail again again and again
