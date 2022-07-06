@@ -41,16 +41,16 @@ Each and every option listed below is optional.
 
 `supervisor`:
 - `keyLength`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
-- `stale`: Number - After `stale` seconds the supervisor will be destroyed if the last ping is too long ago. (Default: `120`)
+- `stale`: Number - The supervisor will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `30`)
 
 `metrics`:
 - `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`) 
 - `memory`: Boolean - If `true`, then the current memory (MB) will be saved into the metrics object. (Default: `true`)
 
 `process`:
-- `stale`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
-- `periodicTimer`: Number - After `stale` seconds the supervisor will be destroyed if the last ping is too long ago. (Default: `120`)
-- `timeout`: Number - After `stale` seconds the supervisor will be destroyed if the last ping is too long ago. (Default: `120`)
+- `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `30`)
+- `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database and channel will be joined/parted. (Default: `2_000`)
+- `timeout`: Number - If the process was marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
 
 `autoScale`:
   - `processes`:

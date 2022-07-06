@@ -20,10 +20,10 @@ class Supervisor extends EventEmitter {
 			},
 			supervisor: {
 				keyLength: 8,
-				stale: 120,
+				stale: 30,
 			},
 			process: {
-				stale: 90,
+				stale: 30,
 				periodicTimer: 2_000,
 				timeout: 60_000,
 			},
@@ -150,7 +150,8 @@ class Supervisor extends EventEmitter {
 		return this
 			.getPromise('terminate')
 			.then(() => this._processPool.terminate())
-			.then(() => {
+			// we don't delete the supervisor/process we delete it after it is stale and the channel are re-joined.
+/*			.then(() => {
 				if (!this.database) {
 					return Promise.resolve();
 				}
@@ -165,7 +166,7 @@ class Supervisor extends EventEmitter {
 						resolve();
 					});
 				});
-			})
+			})*/
 			.then(() => {
 				console.log(`[tmi.js-cluster] Supervisor ${this.id} closed.`);
 				process.exit(0);

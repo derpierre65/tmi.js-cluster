@@ -4,7 +4,7 @@ class RedisCommandQueue {
 	}
 
 	unshift(name, command, options) {
-		return this._redisClient.lPush(this.redisPrefix + 'commands:' + name, JSON.stringify({
+		return this._redisClient.lPush(this.getRedisKey(name), JSON.stringify({
 			time: Date.now(),
 			command,
 			options,
@@ -12,7 +12,7 @@ class RedisCommandQueue {
 	}
 
 	push(name, command, options) {
-		return this._redisClient.rPush(this.redisPrefix + 'commands:' + name, JSON.stringify({
+		return this._redisClient.rPush(this.getRedisKey(name), JSON.stringify({
 			time: Date.now(),
 			command,
 			options,
@@ -20,7 +20,7 @@ class RedisCommandQueue {
 	}
 
 	async pending(name) {
-		let keyName = this.redisPrefix + 'commands:' + name;
+		let keyName = this.getRedisKey(name);
 		const length = await this._redisClient.lLen(keyName);
 		if (length < 1) {
 			return [];
@@ -42,7 +42,11 @@ class RedisCommandQueue {
 	}
 
 	flush(name) {
-		return this._redisClient.del(this.redisPrefix + 'commands:' + name);
+		return this._redisClient.del(this.getRedisKey(name));
+	}
+
+	getRedisKey(name) {
+		return `${this.redisPrefix}commands:${name}`;
 	}
 
 	get redisPrefix() {

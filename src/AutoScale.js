@@ -21,15 +21,12 @@ class AutoScale {
 		if (currentUsage > global.tmiClusterConfig.autoScale.thresholds.scaleUp && nextUsage > global.tmiClusterConfig.autoScale.thresholds.scaleDown) {
 			await this.scaleUp();
 		}
-		else if (currentUsage < global.tmiClusterConfig.autoScale.thresholds.scaleDown) {
-			if (nextUsage < global.tmiClusterConfig.autoScale.thresholds.scaleUp) {
-				await this.scaleDown();
-			}
+		else if (currentUsage < global.tmiClusterConfig.autoScale.thresholds.scaleDown && nextUsage < global.tmiClusterConfig.autoScale.thresholds.scaleUp) {
+			await this.scaleDown();
 		}
 
 		this._scaling = false;
 	}
-
 	async scaleUp() {
 		await this._supervisor._processPool.scale(
 			Math.min(global.tmiClusterConfig.autoScale.processes.max, this._supervisor._processPool.processes.length + 1),
