@@ -32,7 +32,10 @@ class TmiClient {
 			}
 
 			const currentState = this._client.readyState();
-			const currentChannels = this._client.getChannels();
+			let currentChannels = this._client.getChannels();
+
+			// unique the channels (tmi.js can return an array with duplicated channels)
+			currentChannels = currentChannels.filter((value, index) => currentChannels.indexOf(value) === index);
 
 			await this._checkDisconnect(currentState);
 

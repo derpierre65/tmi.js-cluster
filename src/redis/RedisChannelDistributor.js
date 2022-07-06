@@ -208,7 +208,7 @@ class RedisChannelDistributor {
 		await new Promise((resolve, reject) => {
 			this._database.query(`UPDATE tmi_cluster_supervisor_processes SET state = ? WHERE id = ?`, [
 				'TERMINATING',
-				process.env.PROCESS_ID
+				process.env.PROCESS_ID,
 			], (error, rows) => {
 				if (error) {
 					return reject(error);
