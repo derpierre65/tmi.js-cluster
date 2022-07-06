@@ -5,9 +5,11 @@ class RedisChannelDistributor {
 	constructor(database, commandQueue) {
 		this._commandQueue = commandQueue;
 		this._database = database;
+		this._executingQueue = false;
+		this._terminated = false;
 	}
 
-	_join(channels, staleIds, action) {
+	_join(channels, staleIds, queueAction, command) {
 		if (!Array.isArray(channels)) {
 			channels = [channels];
 		}
@@ -18,7 +20,7 @@ class RedisChannelDistributor {
 			return;
 		}
 
-		return this._commandQueue[action](Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.COMMAND_JOIN, {
+		return this._commandQueue[queueAction](Enum.CommandQueue.JOIN_HANDLER, command || Enum.CommandQueue.COMMAND_JOIN, {
 			channels,
 			staleIds,
 		});
@@ -30,6 +32,14 @@ class RedisChannelDistributor {
 
 	joinNow(channels, staleIds) {
 		return this._join(channels, staleIds, 'unshift');
+	}
+
+	part(channels, staleIds) {
+		return this._join(channels, staleIds, 'push', Enum.CommandQueue.COMMAND_PART);
+	}
+
+	partNow(channels, staleIds) {
+		return this._join(channels, staleIds, 'unshift', Enum.CommandQueue.COMMAND_PART);
 	}
 
 	async flushStale(channels, staleIds) {
@@ -50,11 +60,6 @@ class RedisChannelDistributor {
 		[channels, staleIds] = this.searchChannels(commands, channels, staleIds, Enum.CommandQueue.COMMAND_JOIN);
 		[partChannels, staleIds] = this.searchChannels(commands, partChannels, staleIds, Enum.CommandQueue.COMMAND_PART);
 
-		let processes = await this.getProcesses(staleIds);
-		if (processes.length === 0) {
-			return this.reject(channels, staleIds);
-		}
-
 		const take = Math.min(
 			global.tmiClusterConfig.throttle.join.take,
 			global.tmiClusterConfig.throttle.join.allow,
@@ -74,21 +79,43 @@ class RedisChannelDistributor {
 			});
 		}
 
-		for (let i = 0, max = Math.ceil(channelQueue.length / take); i < max; i++) {
-			const step = channelQueue.slice(i * take, (i + 1) * take);
+		console.debug('[tmi.js-cluster] Executing Channel join queue...');
+		this._executingQueue = true;
 
-			await new Promise((resolve) => {
-				setTimeout(async () => {
-					if (i > 0) {
-						processes = await this.getProcesses(staleIds);
+		do {
+			const processes = await this.getProcesses(staleIds);
+			if (processes.length === 0 || this._terminated) {
+				const join = [];
+				const part = [];
+				for (const action of channelQueue) {
+					if (action.action === Enum.CommandQueue.COMMAND_PART) {
+						part.push(action.channel);
 					}
+					else if (Enum.CommandQueue.COMMAND_JOIN) {
+						join.push(action.channel);
+					}
+				}
 
-					this.resolve(processes, step);
+				this.joinNow(join, staleIds);
+				this.partNow(part, staleIds);
 
-					resolve();
-				}, i === 0 ? 0 : global.tmiClusterConfig.throttle.join.every * 1_000);
-			});
-		}
+				console.debug(`[tmi.js-cluster] Queue canceled, re-queued ${join.length} joins and ${part.length} parts.`);
+
+				break;
+			}
+
+			const step = channelQueue.splice(0, take);
+			this.resolve(processes, step);
+
+			if (channelQueue.length) {
+				await new Promise((resolve) => {
+					setTimeout(resolve, global.tmiClusterConfig.throttle.join.every * 1_000);
+				});
+			}
+		} while (channelQueue.length);
+
+		this._executingQueue = false;
+		console.debug('[tmi.js-cluster] Channel join queue finished...');
 	}
 
 	searchChannels(commands, channels, staleIds, type) {
@@ -124,7 +151,11 @@ class RedisChannelDistributor {
 				nextProcess.channelSum++;
 				nextProcess.channels.push(channel);
 
-				this._commandQueue.push(getQueueName(nextProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_JOIN, { channel });
+				this._commandQueue.push(
+					getQueueName(nextProcess.id, Enum.CommandQueue.INPUT_QUEUE),
+					Enum.CommandQueue.COMMAND_JOIN,
+					{ channel },
+				);
 			}
 			else if (action === Enum.CommandQueue.COMMAND_PART) {
 				if (!channelProcess) {
@@ -136,14 +167,14 @@ class RedisChannelDistributor {
 				if (index >= 0) {
 					channelProcess.channels.splice(index, 1);
 
-					this._commandQueue.push(getQueueName(channelProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_PART, { channel });
+					this._commandQueue.push(
+						getQueueName(channelProcess.id, Enum.CommandQueue.INPUT_QUEUE),
+						Enum.CommandQueue.COMMAND_PART,
+						{ channel },
+					);
 				}
 			}
 		}
-	}
-
-	reject(channels, staleIds) {
-		return this.join(channels, staleIds);
 	}
 
 	isJoined(processes, channel) {
@@ -205,21 +236,40 @@ class RedisChannelDistributor {
 	async terminate() {
 		// TODO remove locks
 
-		await new Promise((resolve, reject) => {
-			this._database.query(`UPDATE tmi_cluster_supervisor_processes SET state = ? WHERE id = ?`, [
-				'TERMINATED',
-				process.env.PROCESS_ID,
-			], (error) => {
-				if (error) {
-					console.error('[RedisChannelDistributor] Fail to update state.', error);
-					resolve(error);
+		this._terminated = true;
 
-					return;
+		// the supervisor should wait for the queue
+		if (process.env.TMI_CLUSTER_ROLE === 'supervisor') {
+			await new Promise((resolve) => {
+				if (!this._executingQueue) {
+					return resolve();
 				}
 
-				resolve(null);
+				const interval = setInterval(() => {
+					if (!this._executingQueue) {
+						clearInterval(interval);
+						resolve();
+					}
+				}, 500);
 			});
-		});
+		}
+		else if (process.env.TMI_CLUSTER_ROLE === 'tmi-client') {
+			await new Promise((resolve) => {
+				this._database?.query(`UPDATE tmi_cluster_supervisor_processes SET state = ? WHERE id = ?;`, [
+					'TERMINATED',
+					process.env.PROCESS_ID,
+				], (error) => {
+					if (error) {
+						console.error('[tmi.js-cluster] Fail to update process state.', error);
+						resolve(error);
+
+						return;
+					}
+
+					resolve(null);
+				});
+			});
+		}
 	}
 
 	get commandQueue() {

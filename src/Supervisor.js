@@ -13,6 +13,8 @@ class Supervisor extends EventEmitter {
 	constructor(options, config) {
 		super();
 
+		process.env.TMI_CLUSTER_ROLE = 'supervisor';
+
 		const defaultConfig = {
 			file: 'bot.js',
 			redis: {
@@ -101,7 +103,8 @@ class Supervisor extends EventEmitter {
 						],
 						(error) => {
 							if (error) {
-								console.error('The supervisor couldn\'t be created.');
+								console.error('[tmi.js-cluster] The supervisor couldn\'t be created.', error);
+
 								return reject(error);
 							}
 
@@ -110,7 +113,8 @@ class Supervisor extends EventEmitter {
 				});
 			})
 			.then(() => {
-				console.log(`[tmi.js-cluster] Supervisor ${this.id} started successfully.`);
+				console.debug(`[tmi.js-cluster] Supervisor ${this.id} started successfully.`);
+
 				this.emit('supervisor.ready', this.id);
 				this._processPool.scale(this._config.autoScale.processes.min);
 
@@ -135,7 +139,8 @@ class Supervisor extends EventEmitter {
 				}, this._config.supervisor.updateInterval);
 			})
 			.catch((error) => {
-				console.error(`[tmi.js-cluster] Supervisor ${this.id} could not be started.`);
+				console.error(`[tmi.js-cluster] Supervisor ${this.id} could not be started.`, error);
+
 				this.emit('supervisor.error', this.id, error);
 
 				process.exit(0);
@@ -146,11 +151,12 @@ class Supervisor extends EventEmitter {
 		this._working = false;
 		this.emit('supervisor.terminate', this.id);
 
-		console.log(`[tmi.js-cluster] Terminating supervisor ${this.id}...`);
+		console.debug(`[tmi.js-cluster] Terminating supervisor ${this.id}...`);
 
 		return this
 			.getPromise('terminate')
 			.then(() => this._processPool.terminate())
+			.then(() => this._channelDistributor.terminate())
 			// we don't delete the supervisor/process we delete it after it is stale and the channel are re-joined.
 /*			.then(() => {
 				if (!this.database) {
@@ -169,7 +175,7 @@ class Supervisor extends EventEmitter {
 				});
 			})*/
 			.then(() => {
-				console.log(`[tmi.js-cluster] Supervisor ${this.id} closed.`);
+				console.debug(`[tmi.js-cluster] Supervisor ${this.id} terminated.`);
 				process.exit(0);
 			});
 	}

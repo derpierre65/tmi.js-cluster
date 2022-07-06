@@ -34,10 +34,10 @@ class SubProcess {
 			}
 		});
 		this._process.on('error', (error) => {
-			console.log('[tmi.js-cluster] Process error appeared:', error);
+			console.error('[tmi.js-cluster] Process error appeared:', error);
 		});
 		this._process.on('close', () => {
-			console.log(`[tmi.js-cluster] Process ${this.id} closed.`);
+			console.debug(`[tmi.js-cluster] Process ${this.id} closed.`);
 			this._processPool.removeProcess(this);
 		});
 

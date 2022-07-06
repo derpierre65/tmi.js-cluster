@@ -4,6 +4,8 @@ const { Enum } = require('./lib/enums');
 
 class TmiClient {
 	constructor(options) {
+		process.env.TMI_CLUSTER_ROLE = 'tmi-client';
+
 		options = Object.assign({
 			commandQueue: null,
 			database: null,

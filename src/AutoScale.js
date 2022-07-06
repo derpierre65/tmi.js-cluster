@@ -67,6 +67,7 @@ class AutoScale {
 		if (this._counter % 10 !== 0 || this._releaseStales) {
 			return;
 		}
+
 		this._releaseStales = true;
 
 		// TODO LOCK redis
@@ -114,7 +115,7 @@ class AutoScale {
 			this._supervisor.database.query('DELETE FROM tmi_cluster_supervisors WHERE id IN (?);', [deleteSupervisorIds], (error) => error && console.error('[tmi.js-cluster] Delete staled Supervisors failed.', error));
 		}
 		if (staleIds.length > 0) {
-			this._supervisor.database.query('DELETE FROM tmi_cluster_supervisor_processes WHERE id IN (?);', [staleIds], (error) => error && console.error('[tmi.js-cluster] Delete staled supervisor_processes failed.', error));
+			this._supervisor.database.query('DELETE FROM tmi_cluster_supervisor_processes WHERE id IN (?);', [staleIds], (error) => error && console.error('[tmi.js-cluster] Delete staled supervisor processes failed.', error));
 		}
 
 		await this._supervisor._channelDistributor.flushStale(channels, staleIds);

@@ -112,7 +112,7 @@ class ProcessPool {
 		});
 	}
 
-	terminate() {
+	async terminate() {
 		return new Promise((_resolve) => {
 			const resolve = () => {
 				clearInterval(terminateInterval);
