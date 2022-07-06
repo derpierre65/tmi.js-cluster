@@ -24,7 +24,7 @@ The cluster store its data into a database and use a redis connection for the IR
 | supervisor.ready     | Supervisor is now ready.                         | supervisor id        |
 | supervisor.error     | Supervisor couldn't spawned.                     | supervisor id, error |
 | supervisor.terminate | Supervisor terminate started.                    | supervisor id        |
-| supervisor.ping      | Health ping for the supervisor.                  | -                    |
+| supervisor.ping      | Health ping for the supervisor.                  | supervisor id        |
 | process.create       | Process created.                                 | process id           |
 | process.remove       | Process destroyed.                               | process id           |
 | tmi.join_error       | Will emitted if the client can't join a channel. | channel, error       |
@@ -42,6 +42,7 @@ Each and every option listed below is optional.
 `supervisor`:
 - `keyLength`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
 - `stale`: Number - The supervisor will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `30`)
+- `updateInterval`: TODO
 
 `metrics`:
 - `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`) 

@@ -19,6 +19,7 @@ class Supervisor extends EventEmitter {
 				prefix: 'tmi-cluster:',
 			},
 			supervisor: {
+				updateInterval: 3_000,
 				keyLength: 8,
 				stale: 30,
 			},
@@ -121,7 +122,7 @@ class Supervisor extends EventEmitter {
 						this._processPool.monitor();
 					}
 
-					this.database?.query('UPDATE tmi_cluster_supervisors SET last_ping_at = ? WHERE id = ?', [
+					this.database?.query('UPDATE tmi_cluster_supervisors SET last_ping_at = ? WHERE id = ?;', [
 						new Date(),
 						this.id,
 					], (error) => {
@@ -130,8 +131,8 @@ class Supervisor extends EventEmitter {
 						}
 					});
 
-					this.emit('supervisor.ping');
-				}, 1_000);
+					this.emit('supervisor.ping', this.id);
+				}, this._config.supervisor.updateInterval);
 			})
 			.catch((error) => {
 				console.error(`[tmi.js-cluster] Supervisor ${this.id} could not be started.`);
