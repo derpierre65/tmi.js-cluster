@@ -18,11 +18,12 @@ class TmiClient {
 			queueCommands: 0,
 		};
 
+		this.database = options.database || null;
+
 		this._terminating = false;
 		this._disconnectedSince = 0;
 		this._client = options.tmiClient;
-		this._database = options.database;
-		this._channelDistributor = options.channelDistributor;
+		this._channelDistributor = new options.channelDistributor(options);
 		this._commandQueue = this._channelDistributor.commandQueue;
 		this._signalListener = new SignalListener(process, this);
 
@@ -52,7 +53,7 @@ class TmiClient {
 				channels: currentChannels,
 			});
 
-			if (this._database) {
+			if (this.database) {
 				let metrics = '{}';
 				if (global.tmiClusterConfig.metrics.enabled) {
 					if (global.tmiClusterConfig.metrics.memory) {
@@ -65,7 +66,7 @@ class TmiClient {
 				}
 
 				const now = new Date();
-				this._database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
+				this.database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
 					currentState,
 					JSON.stringify(currentChannels),
 					now,

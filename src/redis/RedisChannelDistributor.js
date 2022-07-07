@@ -1,12 +1,16 @@
 const { channelSanitize, getQueueName } = require('../lib/util');
 const { Enum } = require('../lib/enums');
+const RedisLock = require('./RedisLock');
+const RedisCommandQueue = require('./RedisCommandQueue');
 
 class RedisChannelDistributor {
-	constructor(database, commandQueue) {
-		this._commandQueue = commandQueue;
-		this._database = database;
+	constructor(options) {
+		this._database = options.database;
 		this._executingQueue = false;
 		this._terminated = false;
+
+		this.commandQueue = new RedisCommandQueue(options.redisClient);
+		this.lock = new RedisLock(options.redisClient);
 	}
 
 	_join(channels, staleIds, queueAction, command) {
@@ -20,7 +24,7 @@ class RedisChannelDistributor {
 			return;
 		}
 
-		return this._commandQueue[queueAction](Enum.CommandQueue.JOIN_HANDLER, command || Enum.CommandQueue.COMMAND_JOIN, {
+		return this.commandQueue[queueAction](Enum.CommandQueue.JOIN_HANDLER, command || Enum.CommandQueue.COMMAND_JOIN, {
 			channels,
 			staleIds,
 		});
@@ -50,7 +54,7 @@ class RedisChannelDistributor {
 	}
 
 	async executeQueue(channels, staleIds) {
-		const commands = await this._commandQueue.pending(Enum.CommandQueue.JOIN_HANDLER);
+		const commands = await this.commandQueue.pending(Enum.CommandQueue.JOIN_HANDLER);
 		let partChannels = [];
 
 		if (!Array.isArray(channels)) {
@@ -108,6 +112,8 @@ class RedisChannelDistributor {
 			this.resolve(processes, step);
 
 			if (channelQueue.length) {
+				await this.lock.block('handle-queue', global.tmiClusterConfig.throttle.join.every * 1_000 + 5_000);
+
 				await new Promise((resolve) => {
 					setTimeout(resolve, global.tmiClusterConfig.throttle.join.every * 1_000);
 				});
@@ -151,7 +157,7 @@ class RedisChannelDistributor {
 				nextProcess.channelSum++;
 				nextProcess.channels.push(channel);
 
-				this._commandQueue.push(
+				this.commandQueue.push(
 					getQueueName(nextProcess.id, Enum.CommandQueue.INPUT_QUEUE),
 					Enum.CommandQueue.COMMAND_JOIN,
 					{ channel },
@@ -167,7 +173,7 @@ class RedisChannelDistributor {
 				if (index >= 0) {
 					channelProcess.channels.splice(index, 1);
 
-					this._commandQueue.push(
+					this.commandQueue.push(
 						getQueueName(channelProcess.id, Enum.CommandQueue.INPUT_QUEUE),
 						Enum.CommandQueue.COMMAND_PART,
 						{ channel },
@@ -218,14 +224,14 @@ class RedisChannelDistributor {
 		const channels = [];
 		for (const staleId of staleIds) {
 			const queueName = getQueueName(staleId, Enum.CommandQueue.INPUT_QUEUE);
-			const commands = await this._commandQueue.pending(queueName);
+			const commands = await this.commandQueue.pending(queueName);
 			for (const command of commands) {
 				if (command.command !== Enum.CommandQueue.COMMAND_JOIN) {
-					// TODO need to push it again into the queue?
+					// TODO maybe need to push it again into the queue?
 					continue;
 				}
 
-				// TODO redis lock for single channel?
+				// TODO add a redis lock for single channel?
 				channels.push(command.options.channel);
 			}
 		}
@@ -234,8 +240,6 @@ class RedisChannelDistributor {
 	}
 
 	async terminate() {
-		// TODO remove locks
-
 		this._terminated = true;
 
 		// the supervisor should wait for the queue
@@ -270,10 +274,6 @@ class RedisChannelDistributor {
 				});
 			});
 		}
-	}
-
-	get commandQueue() {
-		return this._commandQueue;
 	}
 }
 

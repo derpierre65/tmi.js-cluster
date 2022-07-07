@@ -70,7 +70,7 @@ class Supervisor extends EventEmitter {
 		this.database = options.database || null;
 
 		this._promises = options.promises || {};
-		this._channelDistributor = options.channelDistributor;
+		this._channelDistributor = new options.channelDistributor(options);
 		this._processPool = new ProcessPool(this);
 		this._signalListener = new SignalListener(process, this);
 		this._autoScale = (options.autoScale && new options.autoScale(this)) || new AutoScale(this);
@@ -95,21 +95,18 @@ class Supervisor extends EventEmitter {
 				return new Promise((resolve, reject) => {
 					const now = new Date();
 
-					this.database.query(
-						'INSERT INTO tmi_cluster_supervisors (??) VALUES (?)',
-						[
-							['id', 'last_ping_at', 'metrics', 'options', 'created_at'],
-							[this.id, now, '{}', '{}', now],
-						],
-						(error) => {
-							if (error) {
-								console.error('[tmi.js-cluster] The supervisor couldn\'t be created.', error);
+					this.database.query('INSERT INTO tmi_cluster_supervisors (??) VALUES (?)', [
+						['id', 'last_ping_at', 'metrics', 'options', 'created_at'],
+						[this.id, now, '{}', '{}', now],
+					], (error) => {
+						if (error) {
+							console.error('[tmi.js-cluster] The supervisor couldn\'t be created.', error);
 
-								return reject(error);
-							}
+							return reject(error);
+						}
 
-							resolve();
-						});
+						resolve();
+					});
 				});
 			})
 			.then(() => {
@@ -158,7 +155,7 @@ class Supervisor extends EventEmitter {
 			.then(() => this._processPool.terminate())
 			.then(() => this._channelDistributor.terminate())
 			// we don't delete the supervisor/process we delete it after it is stale and the channel are re-joined.
-/*			.then(() => {
+			/* .then(() => {
 				if (!this.database) {
 					return Promise.resolve();
 				}

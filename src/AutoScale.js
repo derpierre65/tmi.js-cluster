@@ -1,7 +1,7 @@
 class AutoScale {
 	constructor(supervisor) {
-		this._counter = 8;
 		this._supervisor = supervisor;
+		this._counter = 8;
 		this._scaling = false;
 		this._releaseStales = false;
 	}
@@ -27,16 +27,19 @@ class AutoScale {
 
 		this._scaling = false;
 	}
+
 	async scaleUp() {
-		await this._supervisor._processPool.scale(
-			Math.min(global.tmiClusterConfig.autoScale.processes.max, this._supervisor._processPool.processes.length + 1),
-		);
+		await this._supervisor._processPool.scale(Math.min(
+			global.tmiClusterConfig.autoScale.processes.max,
+			this._supervisor._processPool.processes.length + 1,
+		));
 	}
 
 	async scaleDown() {
-		await this._supervisor._processPool.scale(
-			Math.max(global.tmiClusterConfig.autoScale.processes.min, this._supervisor._processPool.processes.length - 1),
-		);
+		await this._supervisor._processPool.scale(Math.max(
+			global.tmiClusterConfig.autoScale.processes.min,
+			this._supervisor._processPool.processes.length - 1,
+		));
 	}
 
 	getCurrentChannels() {
@@ -68,13 +71,22 @@ class AutoScale {
 			return;
 		}
 
+		const lock = this._supervisor._channelDistributor.lock;
+
+		// queue is already in progress
+		if (!await lock.lock('handle-queue')) {
+			return;
+		}
+
 		this._releaseStales = true;
+		try {
+			await this.flushStale();
+		}
+		finally {
+			this._releaseStales = false;
 
-		// TODO LOCK redis
-		await this.flushStale();
-		// TODO UNLOCK REDIS
-
-		this._releaseStales = false;
+			await lock.release('handle-queue');
+		}
 	}
 
 	async flushStale() {
