@@ -102,18 +102,22 @@ class TmiClient {
 		for (const command of commands) {
 			this._metrics.queueCommands++;
 
+			const channel = command.options.channel;
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
 				this._client
-				    .join(command.options.channel)
+				    .join(channel)
+				    .then(() => {
+					    this._sendJoinEvent(channel);
+				    })
 				    .catch((error) => {
 					    setTimeout(() => {
-						    if (this._client.getChannels().includes(command.options.channel)) {
+						    if (this._sendJoinEvent(channel)) {
 							    return;
 						    }
 
 						    process.send({
 							    event: 'tmi.join_error',
-							    channel: command.options.channel,
+							    channel,
 							    error,
 						    });
 					    }, 1_000);
@@ -121,11 +125,17 @@ class TmiClient {
 			}
 			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
 				this._client
-				    .part(command.options.channel)
+				    .part(channel)
+				    .then(() => {
+					    process.send({
+						    event: 'tmi.part',
+						    channel,
+					    });
+				    })
 				    .catch((error) => {
 					    process.send({
 						    event: 'tmi.part_error',
-						    channel: command.options.channel,
+						    channel,
 						    error,
 					    });
 				    });
@@ -173,9 +183,22 @@ class TmiClient {
 		this._terminating = true;
 
 		await this._channelDistributor.terminate();
-		await this._channelDistributor.joinNow(this._client.getChannels());
+		// await this._channelDistributor.joinNow(this._client.getChannels());
 
 		process.exit(0);
+	}
+
+	_sendJoinEvent(channel) {
+		if (this._client.getChannels().includes(channel)) {
+			process.send({
+				event: 'tmi.join',
+				channel: channel,
+			});
+
+			return true;
+		}
+
+		return false;
 	}
 }
 
