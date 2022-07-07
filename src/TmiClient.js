@@ -1,8 +1,8 @@
-const SignalListener = require('./SignalListener');
-const { getQueueName } = require('./lib/util');
-const { Enum } = require('./lib/enums');
+import SignalListener from './SignalListener';
+import { getQueueName } from'./lib/util';
+import * as Enum from'./lib/enums';
 
-class TmiClient {
+export default class TmiClient {
 	constructor(options) {
 		process.env.TMI_CLUSTER_ROLE = 'tmi-client';
 
@@ -201,5 +201,3 @@ class TmiClient {
 		return false;
 	}
 }
-
-module.exports = TmiClient;

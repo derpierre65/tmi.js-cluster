@@ -1,12 +1,4 @@
-const Supervisor = require('./Supervisor');
-const TmiClient = require('./TmiClient');
-const RedisChannelDistributor = require('./redis/RedisChannelDistributor');
-const RedisCommandQueue = require('./redis/RedisCommandQueue');
-const { Enum } = require('./lib/enums');
-
-module.exports = Supervisor;
-module.exports.Supervisor = Supervisor;
-module.exports.TmiClient = TmiClient;
-module.exports.RedisChannelDistributor = RedisChannelDistributor;
-module.exports.RedisCommandQueue = RedisCommandQueue;
-module.exports.Enum = Enum;
+export {default as Supervisor} from './Supervisor';
+export {default as TmiClient} from './TmiClient';
+export {default as RedisChannelDistributor} from './redis/RedisChannelDistributor';
+export * as Enum from './lib/enums';

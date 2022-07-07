@@ -1,4 +1,4 @@
-class RedisCommandQueue {
+export default class RedisCommandQueue {
 	constructor(redisClient) {
 		this._redisClient = redisClient;
 	}
@@ -53,5 +53,3 @@ class RedisCommandQueue {
 		return global.tmiClusterConfig.redis.prefix || '';
 	}
 }
-
-module.exports = RedisCommandQueue;

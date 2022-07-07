@@ -1,9 +1,9 @@
-const { channelSanitize, getQueueName } = require('../lib/util');
-const { Enum } = require('../lib/enums');
-const RedisLock = require('./RedisLock');
-const RedisCommandQueue = require('./RedisCommandQueue');
+import * as Enum from '../lib/enums';
+import {channelSanitize, getQueueName} from '../lib/util';
+import RedisCommandQueue from './RedisCommandQueue';
+import RedisLock from './RedisLock';
 
-class RedisChannelDistributor {
+export default class RedisChannelDistributor {
 	constructor(options) {
 		this._database = options.database;
 		this._executingQueue = false;
@@ -259,7 +259,9 @@ class RedisChannelDistributor {
 		}
 		else if (process.env.TMI_CLUSTER_ROLE === 'tmi-client') {
 			await new Promise((resolve) => {
-				this._database?.query(`UPDATE tmi_cluster_supervisor_processes SET state = ? WHERE id = ?;`, [
+				this._database?.query(`UPDATE tmi_cluster_supervisor_processes
+				                       SET state = ?
+				                       WHERE id = ?;`, [
 					'TERMINATED',
 					process.env.PROCESS_ID,
 				], (error) => {
@@ -276,5 +278,3 @@ class RedisChannelDistributor {
 		}
 	}
 }
-
-module.exports = RedisChannelDistributor;

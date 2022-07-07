@@ -1,7 +1,7 @@
-const SubProcess = require('./SubProcess');
-const uuid = require('uuid').v4;
+import SubProcess from './SubProcess';
+import {v4 as uuid} from 'uuid';
 
-class ProcessPool {
+export default class ProcessPool {
 	constructor(supervisor) {
 		this.processes = [];
 		this._supervisor = supervisor;
@@ -132,5 +132,3 @@ class ProcessPool {
 		});
 	}
 }
-
-module.exports = ProcessPool;

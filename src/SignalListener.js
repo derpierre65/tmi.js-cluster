@@ -1,6 +1,6 @@
-const EventEmitter = require('node:events');
+import EventEmitter from 'node:events';
 
-class SignalListener extends EventEmitter {
+export default class SignalListener extends EventEmitter {
 	constructor(signalProcess, executor) {
 		super();
 
@@ -58,5 +58,3 @@ class SignalListener extends EventEmitter {
 			});
 	}
 }
-
-module.exports = SignalListener;

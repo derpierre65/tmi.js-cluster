@@ -3,6 +3,8 @@ const CommandQueue = {
 	INPUT_QUEUE: 'input',
 	COMMAND_JOIN: 'join',
 	COMMAND_PART: 'part',
-}
+};
 
-module.exports.Enum = { CommandQueue };
+export {
+	CommandQueue,
+};

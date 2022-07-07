@@ -1,6 +1,6 @@
-const childProcess = require('child_process');
+import childProcess from 'child_process';
 
-class SubProcess {
+export default class SubProcess {
 	constructor(id, supervisor, pool) {
 		this.id = id;
 		this._supervisor = supervisor;
@@ -68,5 +68,3 @@ class SubProcess {
 		this._process.send('terminate');
 	}
 }
-
-module.exports = SubProcess;

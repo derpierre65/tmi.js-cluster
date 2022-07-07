@@ -10,7 +10,7 @@ function getQueueName(processId, name) {
 	return [processId, name].join('-');
 }
 
-module.exports = {
+export {
 	channelSanitize,
 	getQueueName,
 };

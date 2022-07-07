@@ -1,4 +1,4 @@
-class RedisLock {
+export default class RedisLock {
 	constructor(redisClient) {
 		this._redisClient = redisClient;
 	}
@@ -28,5 +28,3 @@ class RedisLock {
 		return (global.tmiClusterConfig.redis.prefix || '') + name;
 	}
 }
-
-module.exports = RedisLock;

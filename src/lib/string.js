@@ -9,6 +9,6 @@ function random(length) {
 	return result;
 }
 
-module.exports = {
+export {
 	random,
 };

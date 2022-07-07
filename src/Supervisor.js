@@ -1,15 +1,13 @@
-const EventEmitter = require('node:events');
-const os = require('os');
-const path = require('path');
-const merge = require('deepmerge');
+import merge from 'deepmerge';
+import EventEmitter from 'node:events';
+import os from 'os';
+import path from 'path';
+import AutoScale from './AutoScale';
+import * as str from './lib/string';
+import ProcessPool from './ProcessPool';
+import SignalListener from './SignalListener';
 
-// internal libraries
-const str = require('./lib/string');
-const ProcessPool = require('./ProcessPool');
-const SignalListener = require('./SignalListener');
-const AutoScale = require('./AutoScale');
-
-class Supervisor extends EventEmitter {
+export default class Supervisor extends EventEmitter {
 	constructor(options, config) {
 		super();
 
@@ -186,8 +184,10 @@ class Supervisor extends EventEmitter {
 	}
 
 	get modulePath() {
+		if (path.isAbsolute(this._config.file)) {
+			return this._config.file;
+		}
+
 		return path.join(process.cwd(), this._config.file);
 	}
 }
-
-module.exports = Supervisor;

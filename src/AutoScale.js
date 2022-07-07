@@ -1,4 +1,4 @@
-class AutoScale {
+export default class AutoScale {
 	constructor(supervisor) {
 		this._supervisor = supervisor;
 		this._counter = 8;
@@ -133,5 +133,3 @@ class AutoScale {
 		await this._supervisor._channelDistributor.flushStale(channels, staleIds);
 	}
 }
-
-module.exports = AutoScale;
