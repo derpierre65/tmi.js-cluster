@@ -1,6 +1,6 @@
 {
   "name": "tmi.js-cluster",
-  "version": "1.0.0",
+  "version": "1.0.0-alpha.0",
   "description": "tmi.js-cluster is a scalable cluster for tmi.js. This cluster can have multiple supervisors that can be deployed on multiple servers.",
   "main": "dist/index.js",
   "scripts": {
@@ -15,6 +15,13 @@
     "bot",
     "cluster"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/derpierre65/tmi.js-cluster/"
+  },
+  "bugs": {
+    "url": "https://github.com/derpierre65/tmi.js-cluster/issues/"
+  },
   "author": "derpierre65",
   "license": "ISC",
   "dependencies": {
@@ -41,5 +48,8 @@
     "vue": "^2.6.14",
     "vue-loader": "^15.9.8",
     "vue-template-compiler": "^2.6.14"
+  },
+  "engines": {
+    "node": ">=10.0.0"
   }
 }

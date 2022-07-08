@@ -1,9 +1,12 @@
+import EventEmitter from 'node:events';
 import SignalListener from './SignalListener';
 import { getQueueName } from'./lib/util';
 import * as Enum from'./lib/enums';
 
-export default class TmiClient {
+export default class TmiClient extends EventEmitter {
 	constructor(options) {
+		super();
+
 		process.env.TMI_CLUSTER_ROLE = 'tmi-client';
 
 		options = Object.assign({
@@ -115,6 +118,7 @@ export default class TmiClient {
 							    return;
 						    }
 
+							this.emit('tmi.join_error', channel, error);
 						    process.send({
 							    event: 'tmi.join_error',
 							    channel,
@@ -127,12 +131,14 @@ export default class TmiClient {
 				this._client
 				    .part(channel)
 				    .then(() => {
+					    this.emit('tmi.part', channel);
 					    process.send({
 						    event: 'tmi.part',
 						    channel,
 					    });
 				    })
 				    .catch((error) => {
+					    this.emit('tmi.part_error', channel, error);
 					    process.send({
 						    event: 'tmi.part_error',
 						    channel,
@@ -190,6 +196,7 @@ export default class TmiClient {
 
 	_sendJoinEvent(channel) {
 		if (this._client.getChannels().includes(channel)) {
+			this.emit('tmi.join', channel);
 			process.send({
 				event: 'tmi.join',
 				channel: channel,

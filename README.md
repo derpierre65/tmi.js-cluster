@@ -1,7 +1,11 @@
 # Cluster System for [tmi.js](https://github.com/tmijs/tmi.js) Twitch Bots
 
-![Issues](https://img.shields.io/github/license/derpierre65/tmi.js-cluster)
-![Issues](https://img.shields.io/github/issues/derpierre65/tmi.js-cluster)
+![License](https://img.shields.io/github/license/derpierre65/tmi.js-cluster)
+[![Downloads](https://img.shields.io/npm/dt/tmi.js-cluster)](https://www.npmjs.com/package/tmi.js-cluster)
+[![NPM Version](https://img.shields.io/npm/v/tmi.js-cluster)](https://www.npmjs.com/package/tmi.js-cluster)
+[![Node Version](https://img.shields.io/node/v/tmi.js-cluster.svg?style=flat)](https://www.npmjs.com/package/tmi.js-cluster)
+[![Issues](https://img.shields.io/github/issues/derpierre65/tmi.js-cluster)](https://github.com/derpierre65/tmi.js-cluster/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/derpierre65/tmi.js-cluster)](https://github.com/derpierre65/tmi.js-cluster/pulls)
 [![Discord](https://discordapp.com/api/guilds/933758189491613707/embed.png?style=shield)](https://discord.gg/Zg4VQXZ7MG)
 
 ## Introduction
@@ -27,6 +31,8 @@ The cluster store its data into a database and use a redis connection for the IR
 | supervisor.ping      | Health ping for the supervisor.                  | supervisor id        |
 | process.create       | Process created.                                 | process id           |
 | process.remove       | Process destroyed.                               | process id           |
+| tmi.join             | Will emitted when the client join a channel.     | channel              |
+| tmi.part             | Will emitted when the client part a channel.     | channel              |
 | tmi.join_error       | Will emitted if the client can't join a channel. | channel, error       |
 | tmi.part_error       | Will emitted if the client can't part a channel. | channel, error       |
 
