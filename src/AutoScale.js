@@ -1,7 +1,7 @@
 export default class AutoScale {
 	constructor(supervisor) {
 		this._supervisor = supervisor;
-		this._counter = 8;
+		this._counter = 0;
 		this._scaling = false;
 		this._releaseStales = false;
 	}

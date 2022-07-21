@@ -1,6 +1,6 @@
 import EventEmitter from 'node:events';
 import SignalListener from './SignalListener';
-import { getQueueName } from'./lib/util';
+import {getQueueName, unique} from './lib/util';
 import * as Enum from'./lib/enums';
 
 export default class TmiClient extends EventEmitter {
@@ -38,10 +38,7 @@ export default class TmiClient extends EventEmitter {
 			}
 
 			const currentState = this._client.readyState();
-			let currentChannels = this._client.getChannels();
-
-			// unique the channels (tmi.js can return an array with duplicated channels)
-			currentChannels = currentChannels.filter((value, index) => currentChannels.indexOf(value) === index);
+			const currentChannels = unique(this._client.getChannels());
 
 			await this._checkDisconnect(currentState);
 
@@ -51,6 +48,7 @@ export default class TmiClient extends EventEmitter {
 
 			await this._processPendingCommands();
 
+			// send my channels to the supervisor
 			process.send({
 				event: 'channels',
 				channels: currentChannels,
@@ -171,7 +169,8 @@ export default class TmiClient extends EventEmitter {
 			try {
 				await this.terminate();
 			}
-			catch (e) {
+			catch (error) {
+				console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] terminate failed, force exit`);
 				process.exit(0);
 			}
 		}
@@ -189,7 +188,6 @@ export default class TmiClient extends EventEmitter {
 		this._terminating = true;
 
 		await this._channelDistributor.terminate();
-		// await this._channelDistributor.joinNow(this._client.getChannels());
 
 		process.exit(0);
 	}

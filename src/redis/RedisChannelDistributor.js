@@ -1,5 +1,5 @@
 import * as Enum from '../lib/enums';
-import {channelSanitize, getQueueName} from '../lib/util';
+import {channelSanitize, getQueueName, unique} from '../lib/util';
 import RedisCommandQueue from './RedisCommandQueue';
 import RedisLock from './RedisLock';
 
@@ -83,11 +83,12 @@ export default class RedisChannelDistributor {
 			});
 		}
 
-		console.debug('[tmi.js-cluster] Executing Channel join queue...');
+		process.env.DEBUG_ENABLED && console.debug('[tmi.js-cluster] Executing Channel join queue...');
 		this._executingQueue = true;
 
 		do {
 			const processes = await this.getProcesses(staleIds);
+
 			if (processes.length === 0 || this._terminated) {
 				const join = [];
 				const part = [];
@@ -103,7 +104,7 @@ export default class RedisChannelDistributor {
 				this.joinNow(join, staleIds);
 				this.partNow(part, staleIds);
 
-				console.debug(`[tmi.js-cluster] Queue canceled, re-queued ${join.length} joins and ${part.length} parts.`);
+				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] Queue canceled, re-queued ${join.length} joins and ${part.length} parts.`);
 
 				break;
 			}
@@ -121,7 +122,7 @@ export default class RedisChannelDistributor {
 		} while (channelQueue.length);
 
 		this._executingQueue = false;
-		console.debug('[tmi.js-cluster] Channel join queue finished...');
+		process.env.DEBUG_ENABLED && console.debug('[tmi.js-cluster] Channel join queue finished...');
 	}
 
 	searchChannels(commands, channels, staleIds, type) {
@@ -135,8 +136,8 @@ export default class RedisChannelDistributor {
 		}
 
 		channels = channels.map(channelSanitize);
-		channels = channels.filter((value, key) => channels.indexOf(value) === key);
-		staleIds = staleIds.filter((value, key) => staleIds.indexOf(value) === key);
+		channels = unique(channels);
+		staleIds = unique(staleIds);
 
 		return [channels, staleIds];
 	}
@@ -257,6 +258,7 @@ export default class RedisChannelDistributor {
 				}, 500);
 			});
 		}
+		// update supervisor process state
 		else if (process.env.TMI_CLUSTER_ROLE === 'tmi-client') {
 			await new Promise((resolve) => {
 				this._database?.query(`UPDATE tmi_cluster_supervisor_processes
@@ -266,7 +268,7 @@ export default class RedisChannelDistributor {
 					process.env.PROCESS_ID,
 				], (error) => {
 					if (error) {
-						console.error('[tmi.js-cluster] Fail to update process state.', error);
+						console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Fail to update process state.`, error);
 						resolve(error);
 
 						return;

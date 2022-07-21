@@ -152,23 +152,6 @@ export default class Supervisor extends EventEmitter {
 			.getPromise('terminate')
 			.then(() => this._processPool.terminate())
 			.then(() => this._channelDistributor.terminate())
-			// we don't delete the supervisor/process we delete it after it is stale and the channel are re-joined.
-			/* .then(() => {
-				if (!this.database) {
-					return Promise.resolve();
-				}
-
-				return new Promise((resolve) => {
-					this.database.query('DELETE FROM tmi_cluster_supervisors WHERE id = ?;DELETE FROM tmi_cluster_supervisor_processes WHERE supervisor_id = ?;', [this.id, this.id], (error) => {
-						if (error) {
-							console.error('[tmi.js-cluster] Fail to delete supervsior from database:', error);
-						}
-
-						// we are resolving this promise on error too
-						resolve();
-					});
-				});
-			})*/
 			.then(() => {
 				console.debug(`[tmi.js-cluster] Supervisor ${this.id} terminated.`);
 				process.exit(0);
