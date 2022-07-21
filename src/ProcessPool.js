@@ -1,5 +1,5 @@
-import SubProcess from './SubProcess';
 import {v4 as uuid} from 'uuid';
+import SubProcess from './SubProcess';
 
 export default class ProcessPool {
 	constructor(supervisor) {
@@ -36,14 +36,14 @@ export default class ProcessPool {
 	async scaleDown(difference) {
 		const processes = this.processes.slice(0, difference);
 
-		for ( const process of processes ) {
+		for (const process of processes) {
 			process.kill();
 		}
 
 		return new Promise((resolve) => {
 			const tempInterval = setInterval(() => {
 				const removed = processes.filter((process) => !this.processes.includes(process)).length;
-				if ( removed === difference ) {
+				if (removed === difference) {
 					clearInterval(tempInterval);
 
 					resolve();

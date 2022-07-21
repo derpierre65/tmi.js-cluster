@@ -47,7 +47,7 @@ Each and every option listed below is optional.
 
 `supervisor`:
 - `keyLength`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
-- `stale`: Number - The supervisor will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `30`)
+- `stale`: Number - The supervisor will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
 - `updateInterval`: TODO
 
 `metrics`:
@@ -55,7 +55,7 @@ Each and every option listed below is optional.
 - `memory`: Boolean - If `true`, then the current memory (MB) will be saved into the metrics object. (Default: `true`)
 
 `process`:
-- `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `30`)
+- `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
 - `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database and queued channels will be joined or parted. (Default: `2_000`)
 - `timeout`: Number - If the process was marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
 
@@ -85,10 +85,10 @@ Each and every option listed below is optional.
     },
     "supervisor": {
         "keyLength": 8,
-        "stale": 120
+        "stale": 15
     },
     "process": {
-        "stale": 90,
+        "stale": 15,
         "periodicTimer": 2000,
         "timeout": 60000
     },

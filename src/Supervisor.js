@@ -19,12 +19,12 @@ export default class Supervisor extends EventEmitter {
 				prefix: 'tmi-cluster:',
 			},
 			supervisor: {
-				updateInterval: 3_000,
 				keyLength: 8,
-				stale: 30,
+				stale: 15,
+				updateInterval: 3_000,
 			},
 			process: {
-				stale: 30,
+				stale: 15,
 				periodicTimer: 2_000,
 				timeout: 60_000,
 			},
@@ -45,7 +45,6 @@ export default class Supervisor extends EventEmitter {
 			},
 			throttle: {
 				join: {
-					block: 0,
 					allow: 2_000,
 					every: 10,
 					take: 20,
@@ -114,11 +113,13 @@ export default class Supervisor extends EventEmitter {
 				this._processPool.scale(this._config.autoScale.processes.min);
 
 				this._working = true;
-				this._interval = setInterval(() => {
+				this._interval = setInterval(async () => {
 					if (this._working) {
-						this._autoScale.scale();
-						this._autoScale.releaseStaleSupervisors();
-						this._processPool.monitor();
+						await this._autoScale.releaseStaleSupervisors();
+						await this._autoScale.scale();
+						await this._processPool.monitor();
+
+						await this._channelDistributor.executeQueue();
 					}
 
 					this.database?.query('UPDATE tmi_cluster_supervisors SET last_ping_at = ? WHERE id = ?;', [

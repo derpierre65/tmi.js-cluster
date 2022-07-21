@@ -67,14 +67,15 @@ export default class AutoScale {
 	}
 
 	async releaseStaleSupervisors() {
-		if (this._counter % 10 !== 0 || this._releaseStales) {
+		let supervisorStale = Math.max(Math.floor(global.tmiClusterConfig.supervisor.stale), 1);
+		if (this._counter % supervisorStale !== 0 || this._releaseStales) {
 			return;
 		}
 
 		const lock = this._supervisor._channelDistributor.lock;
 
 		// queue is already in progress
-		if (!await lock.lock('handle-queue')) {
+		if (!await lock.lock('release-supervisors')) {
 			return;
 		}
 
@@ -85,7 +86,7 @@ export default class AutoScale {
 		finally {
 			this._releaseStales = false;
 
-			await lock.release('handle-queue');
+			await lock.release('release-supervisors');
 		}
 	}
 

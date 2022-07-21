@@ -3,16 +3,16 @@ export default class RedisLock {
 		this._redisClient = redisClient;
 	}
 
-	async lock(name, ttl = 60) {
+	async lock(name, ttl = 60_000) {
 		return await this._redisClient.set(this._getRedisKey(`lock:${name}`), '1', {
 			NX: 1,
-			PX: ttl * 1_000 + 10, // drift for small TTLs
+			PX: ttl + 20, // drift for small TTLs
 		}) !== null;
 	}
 
-	async block(name, ttl = 60) {
+	async block(name, ttl = 60_000) {
 		return await this._redisClient.set(this._getRedisKey(`lock:${name}`), '1', {
-			PX: ttl * 1_000 + 10, // drift for small TTLs
+			PX: ttl + 20, // drift for small TTLs
 		}) !== null;
 	}
 
