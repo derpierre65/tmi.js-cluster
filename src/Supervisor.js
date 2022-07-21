@@ -1,4 +1,5 @@
 import merge from 'deepmerge';
+import fs from 'fs';
 import EventEmitter from 'node:events';
 import os from 'os';
 import path from 'path';
@@ -7,11 +8,31 @@ import * as str from './lib/string';
 import ProcessPool from './ProcessPool';
 import SignalListener from './SignalListener';
 
+const data = require('../package.json');
+
+/**
+ * @type Supervisor
+ */
+let SupervisorInstance = null;
+
+export {SupervisorInstance};
+
 export default class Supervisor extends EventEmitter {
 	constructor(options, config) {
 		super();
 
+		console.log(fs.readFileSync(__dirname + '/motd.txt').toString());
+		console.log(`You are running tmi.js-cluster v${data.version}.`);
+
+		if (data.version.includes('alpha')) {
+			console.warn('Warning: This is an alpha build. It\'s not recommended running it in production.');
+		}
+
+		console.log('');
+
 		process.env.TMI_CLUSTER_ROLE = 'supervisor';
+
+		SupervisorInstance = this;
 
 		const defaultConfig = {
 			file: 'bot.js',
@@ -61,6 +82,7 @@ export default class Supervisor extends EventEmitter {
 
 		// save configs
 		this._config = config;
+		global.tmiClusterConfig = config;
 
 		// internal initialization
 		this.id = null;
@@ -68,12 +90,16 @@ export default class Supervisor extends EventEmitter {
 
 		this._promises = options.promises || {};
 		this._channelDistributor = new options.channelDistributor(options);
-		this._processPool = new ProcessPool(this);
+		this._processPool = new ProcessPool();
 		this._signalListener = new SignalListener(process, this);
-		this._autoScale = (options.autoScale && new options.autoScale(this)) || new AutoScale(this);
+		this._autoScale = (options.autoScale && new options.autoScale()) || new AutoScale();
 		this._working = false;
 
-		global.tmiClusterConfig = config;
+		let every = config.throttle.join.every;
+		if ((every - 1) * 1_000 < tmiClusterConfig.process.periodicTimer && !options.redis.sub ) {
+			every *= 1_000;
+			console.warn( `For unverified bots its not recommended that throttle.join.every (${every}) is equal or lower then process.periodicTimer (${tmiClusterConfig.process.periodicTimer}) in non pub/sub mode.`);
+		}
 	}
 
 	spawn(validate) {
@@ -107,7 +133,7 @@ export default class Supervisor extends EventEmitter {
 				});
 			})
 			.then(() => {
-				console.debug(`[tmi.js-cluster] Supervisor ${this.id} started successfully.`);
+				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] Supervisor ${this.id} started successfully.`);
 
 				this.emit('supervisor.ready', this.id);
 				this._processPool.scale(this._config.autoScale.processes.min);
@@ -115,10 +141,9 @@ export default class Supervisor extends EventEmitter {
 				this._working = true;
 				this._interval = setInterval(async () => {
 					if (this._working) {
-						await this._autoScale.releaseStaleSupervisors();
+						await this._channelDistributor.releaseStaleSupervisors();
 						await this._autoScale.scale();
 						await this._processPool.monitor();
-
 						await this._channelDistributor.executeQueue();
 					}
 
@@ -145,16 +170,18 @@ export default class Supervisor extends EventEmitter {
 
 	terminate() {
 		this._working = false;
-		this.emit('supervisor.terminate', this.id);
 
-		console.debug(`[tmi.js-cluster] Terminating supervisor ${this.id}...`);
+		this.emit('supervisor.terminate', this.id);
+		clearInterval(this._interval);
+
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] Terminating ${this.id}...`);
 
 		return this
 			.getPromise('terminate')
 			.then(() => this._processPool.terminate())
 			.then(() => this._channelDistributor.terminate())
 			.then(() => {
-				console.debug(`[tmi.js-cluster] Supervisor ${this.id} terminated.`);
+				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] ${this.id} terminated.`);
 				process.exit(0);
 			});
 	}

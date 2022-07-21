@@ -1,13 +1,27 @@
 import {v4 as uuid} from 'uuid';
 import SubProcess from './SubProcess';
+import {SupervisorInstance} from './Supervisor';
+
+/**
+ * @type ProcessPool
+ */
+let ProcessPoolInstance = null;
+
+export {ProcessPoolInstance};
 
 export default class ProcessPool {
-	constructor(supervisor) {
+	/**
+	 * @type ProcessPool
+	 */
+	static instance;
+
+	constructor() {
 		this.processes = [];
-		this._supervisor = supervisor;
 		this._terminatingProcesses = [];
 		this._requestedProcessCount = 0;
 		this._scalingInProcess = false;
+
+		ProcessPoolInstance = this;
 	}
 
 	async scale(count) {
@@ -28,12 +42,16 @@ export default class ProcessPool {
 	}
 
 	async scaleUp(difference) {
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Scale Up.`);
+
 		for (let i = 0; i < difference; i++) {
 			await this.createProcess();
 		}
 	}
 
 	async scaleDown(difference) {
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Scale Down.`);
+
 		const processes = this.processes.slice(0, difference);
 
 		for (const process of processes) {
@@ -53,13 +71,13 @@ export default class ProcessPool {
 	}
 
 	createProcess() {
-		const subProcess = new SubProcess(uuid(), this._supervisor, this);
+		const subProcess = new SubProcess(uuid(), this);
 
 		this.processes.push(subProcess);
 
-		return this._supervisor
-		           .getPromise('createProcess', subProcess.id)
-		           .then(() => subProcess.start());
+		return SupervisorInstance
+			.getPromise('createProcess', subProcess.id)
+			.then(() => subProcess.start());
 	}
 
 	removeProcess(subProcess) {
@@ -67,7 +85,7 @@ export default class ProcessPool {
 		if (index !== -1) {
 			this.processes.splice(index, 1);
 
-			this._supervisor.emit('process.remove', subProcess.id);
+			SupervisorInstance.emit('process.remove', subProcess.id);
 		}
 	}
 
@@ -84,14 +102,14 @@ export default class ProcessPool {
 			this._scalingInProcess = false;
 		}
 		catch (error) {
-			console.error('[tmi.js-cluster] Scaling failed.', error);
+			console.error(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Scaling failed.`, error);
 			process.exit(0);
 		}
 	}
 
 	stopHangingProcesses() {
 		for (const terminatingProcess of this._terminatingProcesses) {
-			if (Date.now() - terminatingProcess.terminatedAt > global.tmiClusterConfig.process.timeout) {
+			if (Date.now() - terminatingProcess.terminatedAt > tmiClusterConfig.process.timeout) {
 				terminatingProcess.process.terminate();
 			}
 

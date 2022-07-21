@@ -1,10 +1,10 @@
 import childProcess from 'child_process';
+import ProcessPool, {ProcessPoolInstance} from './ProcessPool';
+import Supervisor, {SupervisorInstance} from './Supervisor';
 
 export default class SubProcess {
-	constructor(id, supervisor, pool) {
+	constructor(id) {
 		this.id = id;
-		this._supervisor = supervisor;
-		this._processPool = pool;
 		this._process = null;
 		this._channels = [];
 	}
@@ -14,7 +14,7 @@ export default class SubProcess {
 			return;
 		}
 
-		this._process = childProcess.fork(this._supervisor.modulePath, {
+		this._process = childProcess.fork(SupervisorInstance.modulePath, {
 			env: Object.assign({}, process.env, {
 				PROCESS_ID: this.id,
 				TMI_CLUSTER: JSON.stringify(global.tmiClusterConfig),
@@ -27,7 +27,7 @@ export default class SubProcess {
 			}
 
 			if (data.event === 'tmi.join_error') {
-				this._supervisor.emit('tmi.join_error', data.channel, data.error);
+				SupervisorInstance.emit('tmi.join_error', data.channel, data.error);
 			}
 			else if (data.event === 'channels') {
 				this._channels = data.channels;
@@ -37,20 +37,20 @@ export default class SubProcess {
 			console.error('[tmi.js-cluster] Process error appeared:', error);
 		});
 		this._process.on('close', () => {
-			console.debug(`[tmi.js-cluster] Process ${this.id} closed.`);
-			this._processPool.removeProcess(this);
+			process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Process ${this.id} closed.`);
+			ProcessPoolInstance.removeProcess(this);
 		});
 
-		this._supervisor.emit('process.create', this.id);
+		SupervisorInstance.emit('process.create', this.id);
 
-		if (!this._supervisor.database) {
+		if (!SupervisorInstance.database) {
 			return Promise.resolve();
 		}
 
 		return new Promise((resolve, reject) => {
-			this._supervisor.database.query('INSERT INTO tmi_cluster_supervisor_processes (??) VALUES (?);', [
+			SupervisorInstance.database.query('INSERT INTO tmi_cluster_supervisor_processes (??) VALUES (?);', [
 				['id', 'supervisor_id', 'state', 'channels', 'metrics', 'last_ping_at', 'created_at', 'updated_at'],
-				[this.id, this._supervisor.id, 'STARTING', '[]', '{}', new Date(), new Date(), new Date()],
+				[this.id, SupervisorInstance.id, 'STARTING', '[]', '{}', new Date(), new Date(), new Date()],
 			], (error) => {
 				if (error) {
 					console.error('[tmi.js-cluster] Fail to insert the process into database.', error);
@@ -64,7 +64,8 @@ export default class SubProcess {
 	}
 
 	async kill() {
-		this._processPool.markTermination(this);
+		ProcessPoolInstance.markTermination(this);
+
 		this._process.send('terminate');
 	}
 }

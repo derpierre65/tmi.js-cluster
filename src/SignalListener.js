@@ -8,11 +8,19 @@ export default class SignalListener extends EventEmitter {
 		this._pendingSignals = [];
 		this._executingSignal = null;
 
-		console.debug(`[tmi.js-cluster] [${process.env.TMI_CLUSTER_ROLE}] Signal listener initialized.`);
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [${process.env.TMI_CLUSTER_ROLE}] Signal listener initialized.`);
 
 		// set signals
 		signalProcess.on('SIGINT', () => this._queueSignal('terminate'));
 		signalProcess.on('SIGTERM', () => this._queueSignal('terminate'));
+		signalProcess.on('uncaughtException', (error) => {
+			console.error('------------');
+			console.error('Uncaught exception');
+			console.error(error);
+			console.error('------------');
+
+			this._queueSignal('terminate');
+		});
 		signalProcess.on('message', (message) => {
 			if (message === 'terminate') {
 				this._queueSignal('terminate');
@@ -25,7 +33,7 @@ export default class SignalListener extends EventEmitter {
 			return;
 		}
 
-		console.debug(`[tmi.js-cluster] [${process.env.TMI_CLUSTER_ROLE}] Queued process signal ${signal}.`);
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [${process.env.TMI_CLUSTER_ROLE}] Queued process signal ${signal}.`);
 
 		this._pendingSignals.push(signal);
 

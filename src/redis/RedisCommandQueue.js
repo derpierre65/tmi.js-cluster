@@ -1,3 +1,5 @@
+import {getRedisKey} from '../lib/util';
+
 export default class RedisCommandQueue {
 	constructor(redisClient) {
 		this._redisClient = redisClient;
@@ -46,10 +48,6 @@ export default class RedisCommandQueue {
 	}
 
 	getRedisKey(name) {
-		return `${this.redisPrefix}commands:${name}`;
-	}
-
-	get redisPrefix() {
-		return global.tmiClusterConfig.redis.prefix || '';
+		return getRedisKey(`commands:${name}`);
 	}
 }

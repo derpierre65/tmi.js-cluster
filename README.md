@@ -11,15 +11,14 @@
 ## Introduction
 
 tmi.js-cluster is a scalable cluster for [tmi.js](https://github.com/tmijs/tmi.js). This cluster can have multiple supervisors that can be deployed on multiple servers.  
-The cluster store its data into a database and use a redis connection for the IRC command queue to join/part channels and write messages.  
-
-**WIP - Not ready for production**
+The cluster store its data into a database and use a redis connection for the IRC command queue to join/part channels.  
 
 ## Features
 
 - Supervisor can deployed on multiple servers.
 - Use the up-to-date [tmi.js](https://github.com/tmijs/tmi.js) client.
 - Monitoring dashboard.
+- Optimized for unverified and verified bots.
 
 ## Supervisor Events
 

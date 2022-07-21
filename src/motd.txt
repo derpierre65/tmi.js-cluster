@@ -1,0 +1,9 @@
+  _____          _    _                _           _
+ |_   _| __ ___ (_)  (_)___        ___| |_   _ ___| |_ ___ _ __
+   | || '_ ` _ \| |  | / __|_____ / __| | | | / __| __/ _ \ '__|
+   | || | | | | | |_ | \__ \_____| (__| | |_| \__ \ ||  __/ |
+   |_||_| |_| |_|_(_)/ |___/      \___|_|\__,_|___/\__\___|_|
+                   |__/
+
+Thanks for using tmi.js-cluster.
+If you have any suggestions or found a bug, you can report it at https://github.com/derpierre65/tmi.js-cluster/issues
