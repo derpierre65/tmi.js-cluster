@@ -1,4 +1,4 @@
-import ProcessPool, {ProcessPoolInstance} from './ProcessPool';
+import {ProcessPoolInstance} from './ProcessPool';
 
 export default class AutoScale {
 	constructor() {
@@ -16,10 +16,10 @@ export default class AutoScale {
 		const currentUsage = this.getCurrentAverageChannelUsage(serverCount, channelCount);
 		const nextUsage = this.getNextAverageChannelUsage(serverCount, channelCount);
 
-		if (currentUsage > global.tmiClusterConfig.autoScale.thresholds.scaleUp && nextUsage > global.tmiClusterConfig.autoScale.thresholds.scaleDown) {
+		if (currentUsage > tmiClusterConfig.autoScale.thresholds.scaleUp && nextUsage > tmiClusterConfig.autoScale.thresholds.scaleDown) {
 			await this.scaleUp();
 		}
-		else if (currentUsage < global.tmiClusterConfig.autoScale.thresholds.scaleDown && nextUsage < global.tmiClusterConfig.autoScale.thresholds.scaleUp) {
+		else if (currentUsage < tmiClusterConfig.autoScale.thresholds.scaleDown && nextUsage < tmiClusterConfig.autoScale.thresholds.scaleUp) {
 			await this.scaleDown();
 		}
 
@@ -28,14 +28,14 @@ export default class AutoScale {
 
 	async scaleUp() {
 		await ProcessPoolInstance.scale(Math.min(
-			global.tmiClusterConfig.autoScale.processes.max,
+			tmiClusterConfig.autoScale.processes.max,
 			ProcessPoolInstance.processes.length + 1,
 		));
 	}
 
 	async scaleDown() {
 		await ProcessPoolInstance.scale(Math.max(
-			global.tmiClusterConfig.autoScale.processes.min,
+			tmiClusterConfig.autoScale.processes.min,
 			ProcessPoolInstance.processes.length - 1,
 		));
 	}
@@ -57,10 +57,10 @@ export default class AutoScale {
 			return 0;
 		}
 
-		return channelCount / (serverCount * global.tmiClusterConfig.autoScale.thresholds.channels) * 100;
+		return channelCount / (serverCount * tmiClusterConfig.autoScale.thresholds.channels) * 100;
 	}
 
 	getNextAverageChannelUsage(serverCount, channelCount) {
-		return channelCount / ((serverCount + 1) * global.tmiClusterConfig.autoScale.thresholds.channels) * 100;
+		return channelCount / ((serverCount + 1) * tmiClusterConfig.autoScale.thresholds.channels) * 100;
 	}
 }

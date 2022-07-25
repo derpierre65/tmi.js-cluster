@@ -15,7 +15,7 @@ function unique(array) {
 }
 
 function getRedisKey(name) {
-	return (global.tmiClusterConfig.redis.prefix || '') + name;
+	return (tmiClusterConfig.redis.prefix || '') + name;
 }
 
 export {

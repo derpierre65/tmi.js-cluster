@@ -23,7 +23,7 @@ export default class RedisChannelDistributor {
 		else if (process.env.TMI_CLUSTER_ROLE === 'supervisor') {
 			setInterval(() => {
 				this.releaseStaleSupervisors(true);
-			}, Math.max(Math.floor(global.tmiClusterConfig.supervisor.stale), 10) * 1_000);
+			}, Math.max(Math.floor(tmiClusterConfig.supervisor.stale), 10) * 1_000);
 		}
 	}
 
@@ -221,14 +221,12 @@ export default class RedisChannelDistributor {
 				const start = Date.now();
 				const executed = await this.resolve(processes, step);
 
-				console.debug(`executed ${executed} actions`, Date.now() - start);
-
 				// if more channels are available then wait for "every" seconds otherwise we finish the queue and let expire the redis lock.
 				if (channelQueue.length && executed) {
 					await new Promise((resolve) => {
 						// we need to add some time, it's not important if you have a verified bot because the limit would be high enough to join/part enough channels.
 						// the command execution can take some time and could be result with a "no response from twitch" for unverified users
-						setTimeout(resolve, every * 1_000);
+						setTimeout(resolve, every * 1_000 + (Date.now() - start) * 2);
 					});
 				}
 			} while (channelQueue.length);
@@ -246,7 +244,7 @@ export default class RedisChannelDistributor {
 		// fetch all possible processes
 		let processes = await new Promise((resolve, reject) => {
 			SupervisorInstance.database.query(`SELECT * FROM tmi_cluster_supervisor_processes WHERE last_ping_at > ? AND state = ?;`, [
-				new Date(Date.now() - global.tmiClusterConfig.process.stale * 1_000),
+				new Date() - tmiClusterConfig.process.stale * 1_000,
 				'OPEN',
 			], (error, rows) => {
 				if (error) {

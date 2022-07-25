@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safe termination on `uncaughtException`.
 - Mark a process as stale if the state is `TERMINATED` and will not waiting if the last ping is in stale range.
 - Drop `PART` and `JOIN` event if a `PART` command has been found after the `JOIN` command for the given channel.
+- Events (`tmi.join`, `tmi.join_error`, `tmi.part`, `tmi.part_error`) for TmiClient instance.
+- Event `tmi.channels` added to TmiClient instance.
 
 ### Changed
 - Updated release stale supervisors for a faster rejoin.

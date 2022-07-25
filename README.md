@@ -11,7 +11,7 @@
 ## Introduction
 
 tmi.js-cluster is a scalable cluster for [tmi.js](https://github.com/tmijs/tmi.js). This cluster can have multiple supervisors that can be deployed on multiple servers.  
-The cluster store its data into a database and use a redis connection for the IRC command queue to join/part channels.  
+The cluster store its data into a database and use a redis connection for the IRC command queue to join/part channels.
 
 ## Features
 
@@ -20,20 +20,21 @@ The cluster store its data into a database and use a redis connection for the IR
 - Monitoring dashboard.
 - Optimized for unverified and verified bots.
 
-## Supervisor Events
+## Events
 
-| Event                | Description                                      | Parameters           |
-|----------------------|--------------------------------------------------|----------------------|
-| supervisor.ready     | Supervisor is now ready.                         | supervisor id        |
-| supervisor.error     | Supervisor couldn't spawned.                     | supervisor id, error |
-| supervisor.terminate | Supervisor terminate started.                    | supervisor id        |
-| supervisor.ping      | Health ping for the supervisor.                  | supervisor id        |
-| process.create       | Process created.                                 | process id           |
-| process.remove       | Process destroyed.                               | process id           |
-| tmi.join             | Will emitted when the client join a channel.     | channel              |
-| tmi.part             | Will emitted when the client part a channel.     | channel              |
-| tmi.join_error       | Will emitted if the client can't join a channel. | channel, error       |
-| tmi.part_error       | Will emitted if the client can't part a channel. | channel, error       |
+| Available             | Event                | Description                                                                          | Parameters                        |
+|-----------------------|----------------------|--------------------------------------------------------------------------------------|-----------------------------------|
+| Supervisor            | supervisor.ready     | Supervisor is now ready.                                                             | supervisor id                     |
+| Supervisor            | supervisor.error     | Supervisor couldn't spawned.                                                         | supervisor id, error              |
+| Supervisor            | supervisor.terminate | Supervisor terminate started.                                                        | supervisor id                     |
+| Supervisor            | supervisor.ping      | Health ping for the supervisor.                                                      | supervisor id                     |
+| Supervisor            | process.create       | Process created.                                                                     | process id                        |
+| Supervisor            | process.remove       | Process destroyed.                                                                   | process id                        |
+| Supervisor, TmiClient | tmi.join             | Will emitted when the client join a channel.                                         | channel                           |
+| Supervisor, TmiClient | tmi.part             | Will emitted when the client part a channel.                                         | channel                           |
+| Supervisor, TmiClient | tmi.join_error       | Will emitted if the client can't join a channel.                                     | channel, error                    |
+| Supervisor, TmiClient | tmi.part_error       | Will emitted if the client can't part a channel.                                     | channel, error                    |
+| TmiClient             | tmi.channels         | Will emitted every `process.periodicTimer` ms if the tmi.js client is in open state. | array of channels (unique values) |
 
 ## Configuration
 
@@ -50,7 +51,7 @@ Each and every option listed below is optional.
 - `updateInterval`: TODO
 
 `metrics`:
-- `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`) 
+- `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`)
 - `memory`: Boolean - If `true`, then the current memory (MB) will be saved into the metrics object. (Default: `true`)
 
 `process`:
@@ -59,59 +60,58 @@ Each and every option listed below is optional.
 - `timeout`: Number - If the process was marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
 
 `autoScale`:
-  - `processes`:
-    - `min`: Number - The minimum of prcoesses. (Default: `2`)
-    - `max`: Number - The maximum of processes. (Default: `20`)
-  - `thresholds`:
-    - `channels`: Number - The maximum target of channels per process. (Default: `1000`)
-    - `scaleUp`: Number - If a supervisor reach more than `scaleUp`% channels then a new process will be created. (Default: `75`)
-    - `scaleDown`: Number - If a supervisor reach less than `scaleUp`% channels then one process will be terminated. (Default: `50`)
+- `processes`:
+	- `min`: Number - The minimum of prcoesses. (Default: `2`)
+	- `max`: Number - The maximum of processes. (Default: `20`)
+- `thresholds`:
+	- `channels`: Number - The maximum target of channels per process. (Default: `1000`)
+	- `scaleUp`: Number - If a supervisor reach more than `scaleUp`% channels then a new process will be created. (Default: `75`)
+	- `scaleDown`: Number - If a supervisor reach less than `scaleUp`% channels then one process will be terminated. (Default: `50`)
 
 `throttle`:
 - `join`:
-  - `allow`: Number - The maximum allowed `take` value. (Default: `2000`)
-  - `every`: Number - The time to wait before the next channels are joined. (Default: `10`)
-  - `take`: Number - The number of channels there should be joined every `every` seconds. Twitch allows 20/10s for normal users and 2000/10s for verified bots. (Default: `20`)
-
+	- `allow`: Number - The maximum allowed `take` value. (Default: `2000`)
+	- `every`: Number - The time to wait before the next channels are joined. (Default: `10`)
+	- `take`: Number - The number of channels there should be joined every `every` seconds. Twitch allows 20/10s for normal users and 2000/10s for verified bots. (Default: `20`)
 
 ### Default Object
 
 ```json
 {
-    "file": "bot.js",
-    "redis": {
-        "prefix": "tmi-cluster:"
-    },
-    "supervisor": {
-        "keyLength": 8,
-        "stale": 15
-    },
-    "process": {
-        "stale": 15,
-        "periodicTimer": 2000,
-        "timeout": 60000
-    },
-    "metrics": {
-        "enabled": true,
-        "memory": true
-    },
-    "autoScale": {
-        "processes": {
-            "min": 2,
-            "max": 20
-        },
-        "thresholds": {
-            "channels": 2000,
-            "scaleUp": 75,
-            "scaleDown": 50
-        }
-    },
-    "throttle": {
-        "join": {
-            "allow": 2000,
-            "every": 10,
-            "take": 20
-        }
-    }
+	"file": "bot.js",
+	"redis": {
+		"prefix": "tmi-cluster:"
+	},
+	"supervisor": {
+		"keyLength": 8,
+		"stale": 15
+	},
+	"process": {
+		"stale": 15,
+		"periodicTimer": 2000,
+		"timeout": 60000
+	},
+	"metrics": {
+		"enabled": true,
+		"memory": true
+	},
+	"autoScale": {
+		"processes": {
+			"min": 2,
+			"max": 20
+		},
+		"thresholds": {
+			"channels": 2000,
+			"scaleUp": 75,
+			"scaleDown": 50
+		}
+	},
+	"throttle": {
+		"join": {
+			"allow": 2000,
+			"every": 10,
+			"take": 20
+		}
+	}
 }
 ```

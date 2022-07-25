@@ -63,11 +63,12 @@ export default class TmiClient extends EventEmitter {
 				event: 'channels',
 				channels: currentChannels,
 			});
+			this.emit('tmi.channels', currentChannels);
 
 			if (this.database) {
 				let metrics = '{}';
-				if (global.tmiClusterConfig.metrics.enabled) {
-					if (global.tmiClusterConfig.metrics.memory) {
+				if (tmiClusterConfig.metrics.enabled) {
+					if (tmiClusterConfig.metrics.memory) {
 						this._metrics.memory = process.memoryUsage().heapUsed / 1024 / 1024;
 					}
 
@@ -98,7 +99,7 @@ export default class TmiClient extends EventEmitter {
 		});
 
 		// tmi.js hook for metrics
-		if (global.tmiClusterConfig.metrics.enabled) {
+		if (tmiClusterConfig.metrics.enabled) {
 			this._client.on('message', () => {
 				this._metrics.messages++;
 			});
