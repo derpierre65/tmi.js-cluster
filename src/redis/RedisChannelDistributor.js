@@ -67,6 +67,7 @@ export default class RedisChannelDistributor {
 		const processStaleAfter = SupervisorInstance._config.process.stale * 1_000;
 		const deleteSupervisorIds = [];
 		const staleIds = [];
+		let clients = [];
 		let channels = [];
 
 		for (const supervisor of supervisors) {
@@ -82,6 +83,7 @@ export default class RedisChannelDistributor {
 
 			staleIds.push(supervisorProcess.id);
 			channels.push(...JSON.parse(supervisorProcess.channels));
+			clients.push(...JSON.parse(supervisorProcess.clients));
 		}
 
 		if (deleteSupervisorIds.length > 0) {
@@ -95,6 +97,10 @@ export default class RedisChannelDistributor {
 		channels = unique(channels.map(channelSanitize));
 
 		await this.join(channels, true);
+
+		for (const client of clients) {
+			await this.createClient(client);
+		}
 	}
 
 	async getProcesses() {
@@ -114,7 +120,7 @@ export default class RedisChannelDistributor {
 
 		processes = processes.map((supervisorProcess) => {
 			const channels = JSON.parse(supervisorProcess.channels);
-			const clients = []; // TODO read from database
+			const clients = JSON.parse(supervisorProcess.clients);
 
 			return {
 				id: supervisorProcess.id,
@@ -309,25 +315,37 @@ export default class RedisChannelDistributor {
 	}
 
 	join(channels, now = false) {
-		return this._join(channels, now ? 'unshift' : 'push');
+		return this._channelAction(channels, now ? 'unshift' : 'push');
 	}
 
 	part(channels, now = false) {
-		return this._join(channels, now ? 'unshift' : 'push', Enum.CommandQueue.COMMAND_PART);
+		return this._channelAction(channels, now ? 'unshift' : 'push', Enum.CommandQueue.COMMAND_PART);
+	}
+
+	createClient(channel, now = false) {
+		this.commandQueue[now ? 'unshift' : 'push'](Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.CREATE_CLIENT, {
+			channel,
+		});
+	}
+
+	deleteClient(channel, now = false) {
+		this.commandQueue[now ? 'unshift' : 'push'](Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.DELETE_CLIENT, {
+			channel,
+		});
 	}
 
 	/**
 	 * @deprecated
 	 */
 	joinNow(channels) {
-		return this._join(channels, 'unshift');
+		return this._channelAction(channels, 'unshift');
 	}
 
 	/**
 	 * @deprecated
 	 */
 	partNow(channels) {
-		return this._join(channels, 'unshift', Enum.CommandQueue.COMMAND_PART);
+		return this._channelAction(channels, 'unshift', Enum.CommandQueue.COMMAND_PART);
 	}
 
 	getQueues(commands) {
@@ -553,7 +571,7 @@ export default class RedisChannelDistributor {
 		}
 	}
 
-	_join(channels, queueAction, command) {
+	_channelAction(channels, queueAction, command) {
 		if (!Array.isArray(channels)) {
 			channels = [channels];
 		}

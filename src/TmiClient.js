@@ -70,21 +70,25 @@ export default class TmiClient extends EventEmitter {
 			this.emit('tmi.channels', currentChannels);
 
 			if (this.database) {
+				const currentClients = Object.keys(this.clients);
 				let metrics = '{}';
+
 				if (tmiClusterConfig.metrics.enabled) {
 					if (tmiClusterConfig.metrics.memory) {
 						this._metrics.memory = process.memoryUsage().heapUsed / 1024 / 1024;
 					}
 
 					this._metrics.channels = currentChannels.length;
+					this._metrics.clients = currentClients.length;
 
 					metrics = JSON.stringify(this._metrics);
 				}
 
 				const now = new Date();
-				this.database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
+				this.database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, clients = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
 					currentState,
 					JSON.stringify(currentChannels),
+					JSON.stringify(currentClients),
 					now,
 					now,
 					metrics,
@@ -180,9 +184,12 @@ export default class TmiClient extends EventEmitter {
 		// this would cause that channels will be dropped and not rejoined.
 		const currentChannels = unique(this._client.getChannels());
 		await new Promise((resolve) => {
-			TmiClientInstance.database?.query(`UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ? WHERE id = ?;`, [
+			const currentClients = Object.keys(this.clients);
+
+			TmiClientInstance.database?.query(`UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, clients = ? WHERE id = ?;`, [
 				'TERMINATED',
 				JSON.stringify(currentChannels),
+				JSON.stringify(currentClients),
 				process.env.PROCESS_ID,
 			], (error) => {
 				if (error) {
@@ -263,7 +270,11 @@ export default class TmiClient extends EventEmitter {
 
 				newClient.on('disconnect', () => {
 					if (newClient.readyState() !== 'CLOSED') {
-						console.log(newClient.disconnect());
+						newClient.disconnect();
+					}
+
+					if (this.clients[clientUsername]) {
+						this.deleteClient(clientUsername, true);
 					}
 				});
 
@@ -302,12 +313,21 @@ export default class TmiClient extends EventEmitter {
 		}
 	}
 
-	deleteClient(channel) {
+	deleteClient(channel, recreate) {
+		if (recreate) {
+			this._channelDistributor.createClient(channel, true);
+		}
+
 		const clientUsername = channel.replace(/#/g, '').toLowerCase();
+		const client = this.clients[clientUsername];
 
 		this.emit('tmi.client.deleted', clientUsername, this.clients[clientUsername]);
 
 		delete this.clients[clientUsername];
+
+		if (!recreate && client.readyState() !== 'CLOSED') {
+			client.disconnect();
+		}
 	}
 
 	_addMetricEvents(client) {

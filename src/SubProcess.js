@@ -49,8 +49,8 @@ export default class SubProcess {
 
 		return new Promise((resolve, reject) => {
 			SupervisorInstance.database.query('INSERT INTO tmi_cluster_supervisor_processes (??) VALUES (?);', [
-				['id', 'supervisor_id', 'state', 'channels', 'metrics', 'last_ping_at', 'created_at', 'updated_at'],
-				[this.id, SupervisorInstance.id, 'STARTING', '[]', '{}', new Date(), new Date(), new Date()],
+				['id', 'supervisor_id', 'state', 'channels', 'clients', 'metrics', 'last_ping_at', 'created_at', 'updated_at'],
+				[this.id, SupervisorInstance.id, 'STARTING', '[]', '[]', '{}', new Date(), new Date(), new Date()],
 			], (error) => {
 				if (error) {
 					console.error('[tmi.js-cluster] Fail to insert the process into database.', error);
