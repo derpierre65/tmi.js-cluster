@@ -26,8 +26,8 @@ export default class SubProcess {
 				return;
 			}
 
-			if (data.event === 'tmi.join_error') {
-				SupervisorInstance.emit('tmi.join_error', data.channel, data.error);
+			if (data.event === 'tmi.join') {
+				SupervisorInstance.emit('tmi.join', data.error, data.channel);
 			}
 			else if (data.event === 'channels') {
 				this._channels = data.channels;

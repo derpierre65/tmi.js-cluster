@@ -11,7 +11,7 @@ let TmiClientInstance = null;
 export {TmiClientInstance};
 
 export default class TmiClient extends EventEmitter {
-	constructor(options) {
+	constructor(options, callbacks) {
 		super();
 
 		process.env.TMI_CLUSTER_ROLE = 'tmi-client';
@@ -24,21 +24,25 @@ export default class TmiClient extends EventEmitter {
 			tmiClient: null,
 		}, options);
 
+		this.id = process.env.PROCESS_ID;
+		this.database = options.database || null;
+		this.callbacks = callbacks || {
+			createClient: null,
+		};
+
 		this._metrics = {
 			messages: 0,
 			rawMessages: 0,
 			queueCommands: 0,
 		};
-
-		this.id = process.env.PROCESS_ID;
-		this.database = options.database || null;
-
-		this._terminating = false;
-		this._disconnectedSince = 0;
 		this._client = options.tmiClient;
+		this._terminating = false;
+		this.clients = {};
+		this._disconnectedSince = 0;
 		this._channelDistributor = new options.channelDistributor(options);
 		this._commandQueue = this._channelDistributor.commandQueue;
 		this._signalListener = new SignalListener(process, this);
+
 		this._interval = setInterval(async () => {
 			if (this._terminating) {
 				return;
@@ -99,14 +103,8 @@ export default class TmiClient extends EventEmitter {
 		});
 
 		// tmi.js hook for metrics
-		if (tmiClusterConfig.metrics.enabled) {
-			this._client.on('message', () => {
-				this._metrics.messages++;
-			});
-			this._client.on('raw_message', () => {
-				this._metrics.rawMessages++;
-			});
-		}
+		this._addMetricEvents(this._client);
+		this.emit('tmi.client.created', null, null, this._client);
 	}
 
 	async joinChannel(channel) {
@@ -120,24 +118,25 @@ export default class TmiClient extends EventEmitter {
 			._client
 			.join(channel)
 			.then(() => {
-				return this._sendJoinEvent(channel);
+				return this._client.getChannels().includes(channel) && null;
 			})
 			.catch((error) => {
 				return new Promise((resolve) => {
 					setTimeout(() => {
-						if (this._sendJoinEvent(channel)) {
-							return resolve(true);
+						if (this._client.getChannels().includes(channel)) {
+							return resolve(null);
 						}
 
-						this.emit('tmi.join_error', channel, error);
-						process.send({
-							event: 'tmi.join_error',
-							channel,
-							error,
-						});
-
-						resolve({ channel, error });
+						resolve(error);
 					}, 1_000);
+				});
+			})
+			.then((error) => {
+				this.emit('tmi.join', error, channel);
+				process.send({
+					event: 'tmi.join',
+					error,
+					channel,
 				});
 			});
 	}
@@ -153,37 +152,19 @@ export default class TmiClient extends EventEmitter {
 			._client
 			.part(channel)
 			.then(() => {
-				this.emit('tmi.part', channel);
-				process.send({
-					event: 'tmi.part',
-					channel,
-				});
+				return null;
 			})
 			.catch((error) => {
-				this.emit('tmi.part_error', channel, error);
+				return error;
+			})
+			.then((error) => {
+				this.emit('tmi.part', error, channel);
 				process.send({
-					event: 'tmi.part_error',
-					channel,
+					event: 'tmi.part',
 					error,
+					channel,
 				});
 			});
-	}
-
-	async _processPendingCommands() {
-		const commands = await this._commandQueue.pending(getQueueName(process.env.PROCESS_ID, Enum.CommandQueue.INPUT_QUEUE));
-		commands.push(...await this._commandQueue.pending('*'));
-
-		for (const command of commands) {
-			this._metrics.queueCommands++;
-
-			const channel = command.options.channel;
-			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
-				this.joinChannel(channel);
-			}
-			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
-				this.partChannel(channel);
-			}
-		}
 	}
 
 	async terminate() {
@@ -220,6 +201,83 @@ export default class TmiClient extends EventEmitter {
 		process.exit(0);
 	}
 
+	async _processPendingCommands() {
+		const commands = await this._commandQueue.pending(getQueueName(process.env.PROCESS_ID, Enum.CommandQueue.INPUT_QUEUE));
+		commands.push(...await this._commandQueue.pending('*'));
+
+		for (const command of commands) {
+			this._metrics.queueCommands++;
+
+			const channel = command.options.channel;
+			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
+				this.joinChannel(channel);
+			}
+			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
+				this.partChannel(channel);
+			}
+			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
+				this._createClient(channel);
+			}
+			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
+				this._deleteClient(channel);
+			}
+		}
+	}
+
+	async _createClient(channel) {
+		if (typeof this.callbacks.createClient !== 'function') {
+			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] createClient is not a function, custom clients are disabled.`);
+			return;
+		}
+
+		const clientUsername = channel.replace(/#/g, '').toLowerCase();
+
+		if (this.clients.hasOwnProperty(clientUsername)) {
+			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] ${clientUsername} has already a client, this shouldn't be happen. Abort to create another one.`);
+			return;
+		}
+
+		this.clients[clientUsername] = null;
+
+		// create client
+		let response = this.callbacks.createClient();
+
+		if (!(response instanceof Promise)) {
+			response = Promise.resolve(response);
+		}
+
+		response
+			.then((newClient) => {
+				if (!newClient) {
+					this.emit('tmi.client.created', new Error('Client could not be created. No response from createClient callback.'));
+					return;
+				}
+
+				this.clients[clientUsername] = newClient;
+				this._addMetricEvents(newClient);
+
+				newClient.on('connect', () => {
+					newClient.join(channel);
+				});
+
+				newClient.on('disconnect', () => {
+					if (newClient.readyState() !== 'CLOSED') {
+						console.log(newClient.disconnect());
+					}
+				});
+
+				this.emit('tmi.client.created', null, clientUsername, newClient);
+			});
+	}
+
+	_deleteClient(channel) {
+		const clientUsername = channel.replace(/#/g, '').toLowerCase();
+
+		this.emit('tmi.client.deleted', clientUsername, this.clients[clientUsername]);
+
+		delete this.clients[clientUsername];
+	}
+
 	async _checkDisconnect(currentState) {
 		if (currentState === 'OPEN') {
 			this._disconnectedSince = 0;
@@ -249,17 +307,16 @@ export default class TmiClient extends EventEmitter {
 		}
 	}
 
-	_sendJoinEvent(channel) {
-		if (this._client.getChannels().includes(channel)) {
-			this.emit('tmi.join', channel);
-			process.send({
-				event: 'tmi.join',
-				channel: channel,
-			});
-
-			return true;
+	_addMetricEvents(client) {
+		if (!tmiClusterConfig.metrics.enabled) {
+			return;
 		}
 
-		return false;
+		client.on('message', () => {
+			this._metrics.messages++;
+		});
+		client.on('raw_message', () => {
+			this._metrics.rawMessages++;
+		});
 	}
 }

@@ -19,6 +19,7 @@ The cluster store its data into a database and use a redis connection for the IR
 - Use the up-to-date [tmi.js](https://github.com/tmijs/tmi.js) client.
 - Monitoring dashboard.
 - Optimized for unverified and verified bots.
+- Join specific channels with a custom bot.
 
 ## Events
 
@@ -30,11 +31,17 @@ The cluster store its data into a database and use a redis connection for the IR
 | Supervisor            | supervisor.ping      | Health ping for the supervisor.                                                      | supervisor id                     |
 | Supervisor            | process.create       | Process created.                                                                     | process id                        |
 | Supervisor            | process.remove       | Process destroyed.                                                                   | process id                        |
-| Supervisor, TmiClient | tmi.join             | Will emitted when the client join a channel.                                         | channel                           |
-| Supervisor, TmiClient | tmi.part             | Will emitted when the client part a channel.                                         | channel                           |
-| Supervisor, TmiClient | tmi.join_error       | Will emitted if the client can't join a channel.                                     | channel, error                    |
-| Supervisor, TmiClient | tmi.part_error       | Will emitted if the client can't part a channel.                                     | channel, error                    |
+| Supervisor, TmiClient | tmi.join             | Will emitted when the client join a channel. `error` is `null` if no error occurred. | error, channel                    |
+| Supervisor, TmiClient | tmi.part             | Will emitted when the client part a channel. `error` is `null` if no error occurred. | error, channel                    |
 | TmiClient             | tmi.channels         | Will emitted every `process.periodicTimer` ms if the tmi.js client is in open state. | array of channels (unique values) |
+| TmiClient             | tmi.client.created   | Will emitted when a new client will be created (includes the main client).           | error, username, client           |
+| TmiClient             | tmi.client.deleted   | Will emitted when a client will be deleted.                                          | username, client                  |
+
+### tmi.client.created
+
+- `error` is null if no error occurred.
+- `username` is null for the main client. **It's the target channel name not the bot name.**
+- `client` contains the tmi.js (or any else) client.
 
 ## Configuration
 

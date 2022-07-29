@@ -70,6 +70,11 @@ export default class Supervisor extends EventEmitter {
 					every: 10,
 					take: 20,
 				},
+				clients: {
+					allow: 100,
+					every: 10,
+					take: 50,
+				},
 			},
 		};
 
@@ -96,9 +101,9 @@ export default class Supervisor extends EventEmitter {
 		this._working = false;
 
 		let every = config.throttle.join.every;
-		if ((every - 1) * 1_000 < tmiClusterConfig.process.periodicTimer && !options.redis.sub ) {
+		if ((every - 1) * 1_000 < tmiClusterConfig.process.periodicTimer && !options.redis.sub) {
 			every *= 1_000;
-			console.warn( `For unverified bots its not recommended that throttle.join.every (${every}) is equal or lower then process.periodicTimer (${tmiClusterConfig.process.periodicTimer}) in non pub/sub mode.`);
+			console.warn(`For unverified bots its not recommended that throttle.join.every (${every}) is equal or lower then process.periodicTimer (${tmiClusterConfig.process.periodicTimer}) in non pub/sub mode.`);
 		}
 	}
 
