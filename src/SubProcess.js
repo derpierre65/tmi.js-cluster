@@ -1,6 +1,6 @@
 import childProcess from 'child_process';
-import ProcessPool, {ProcessPoolInstance} from './ProcessPool';
-import Supervisor, {SupervisorInstance} from './Supervisor';
+import {ProcessPoolInstance} from './ProcessPool';
+import {SupervisorInstance} from './Supervisor';
 
 export default class SubProcess {
 	constructor(id) {

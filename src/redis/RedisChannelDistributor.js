@@ -234,7 +234,7 @@ export default class RedisChannelDistributor {
 				// if we want to delete the client too on part then delete it
 				// TODO the rate limit for client throttle will ignored here it should not be a problem but maybe we must push it into the queue. maybe push it into commands
 				if (command.options.deleteClient) {
-					await this._resolveClientDelete(clientProcess, command, channel);
+					await this._resolveClientDelete(clientProcess, channel);
 				}
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
@@ -261,19 +261,26 @@ export default class RedisChannelDistributor {
 				targetProcess.clients.push(channel);
 
 				if (this.subRedis) {
-					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:client-create`), channel, command.options);
+					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:client-create`), JSON.stringify({
+						channel,
+						options: command.options,
+					}));
 					if (recipients === 0) {
 						this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, command.command, command.options);
 					}
 				}
 				else {
-					this.commandQueue.push(getQueueName(targetProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.CREATE_CLIENT, { channel });
+					this.commandQueue.push(getQueueName(targetProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.CREATE_CLIENT, {
+						channel,
+						options: command.options,
+					});
 				}
 			}
 			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
 				const channel = command.options.channel;
 				const clientProcess = this.hasClient(processes, channel);
-				if (await this._resolveClientDelete(clientProcess, command, channel)) {
+
+				if (await this._resolveClientDelete(clientProcess, channel, command.options)) {
 					executed++;
 				}
 			}
@@ -517,7 +524,7 @@ export default class RedisChannelDistributor {
 		return true;
 	}
 
-	async _resolveClientDelete(clientProcess, command, channel) {
+	async _resolveClientDelete(clientProcess, channel, options = {}) {
 		if (!clientProcess) {
 			return false;
 		}
@@ -530,21 +537,28 @@ export default class RedisChannelDistributor {
 		clientProcess.clientSum++;
 		clientProcess.clients.splice(index, 1);
 
+		const data = {
+			channel,
+			options,
+		};
+
 		if (this.subRedis) {
-			const recipients = await this.pubRedis.publish(getRedisKey(`${clientProcess.id}:client-delete`), channel);
+			const recipients = await this.pubRedis.publish(getRedisKey(`${clientProcess.id}:client-delete`), JSON.stringify(data));
 			if (recipients === 0) {
-				this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.DELETE_CLIENT, command.options);
+				this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.DELETE_CLIENT, data);
 			}
 		}
 		else {
-			this.commandQueue.push(getQueueName(clientProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.DELETE_CLIENT, command.options);
+			this.commandQueue.push(getQueueName(clientProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.DELETE_CLIENT, data);
 		}
 
 		return true;
 	}
 
-	_onClientCreate(channel) {
-		TmiClientInstance.createClient(channel);
+	_onClientCreate(data) {
+		data = JSON.parse(data);
+
+		TmiClientInstance.createClient(data.channel, data.options);
 	}
 
 	_onClientDelete(channel) {

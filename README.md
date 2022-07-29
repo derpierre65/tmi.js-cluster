@@ -19,7 +19,7 @@ The cluster store its data into a database and use a redis connection for the IR
 - Use the up-to-date [tmi.js](https://github.com/tmijs/tmi.js) client.
 - Monitoring dashboard.
 - Optimized for unverified and verified bots.
-- Join specific channels with a custom bot.
+- Multiple tmi clients.
 
 ## Events
 
