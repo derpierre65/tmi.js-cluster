@@ -110,7 +110,7 @@ export default class TmiClient extends EventEmitter {
 
 	async joinChannel(channel) {
 		if (this._terminating) {
-			this._channelDistributor.joinNow(channel);
+			this._channelDistributor.join(channel, true);
 
 			return;
 		}
@@ -144,7 +144,7 @@ export default class TmiClient extends EventEmitter {
 
 	async partChannel(channel) {
 		if (this._terminating) {
-			this._channelDistributor.partNow(channel);
+			this._channelDistributor.part(channel, true);
 
 			return;
 		}
@@ -217,15 +217,15 @@ export default class TmiClient extends EventEmitter {
 				this.partChannel(channel);
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
-				this._createClient(channel);
+				this.createClient(channel);
 			}
 			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
-				this._deleteClient(channel);
+				this.deleteClient(channel);
 			}
 		}
 	}
 
-	async _createClient(channel) {
+	async createClient(channel) {
 		if (typeof this.callbacks.createClient !== 'function') {
 			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] createClient is not a function, custom clients are disabled.`);
 			return;
@@ -271,14 +271,6 @@ export default class TmiClient extends EventEmitter {
 			});
 	}
 
-	_deleteClient(channel) {
-		const clientUsername = channel.replace(/#/g, '').toLowerCase();
-
-		this.emit('tmi.client.deleted', clientUsername, this.clients[clientUsername]);
-
-		delete this.clients[clientUsername];
-	}
-
 	async _checkDisconnect(currentState) {
 		if (currentState === 'OPEN') {
 			this._disconnectedSince = 0;
@@ -308,6 +300,14 @@ export default class TmiClient extends EventEmitter {
 				process.exit(0);
 			}
 		}
+	}
+
+	deleteClient(channel) {
+		const clientUsername = channel.replace(/#/g, '').toLowerCase();
+
+		this.emit('tmi.client.deleted', clientUsername, this.clients[clientUsername]);
+
+		delete this.clients[clientUsername];
 	}
 
 	_addMetricEvents(client) {

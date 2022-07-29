@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Dropped `tmi.join_error` and `tmi.part_error`.
 
+### Deprecated
+- `joinNow` and `partNow` in ChannelDistributor is now deprecated. Can be replaced with the new second argument in `join` and `part`.
+
 ## [1.0.0-alpha.1] - 2022-07-29
 ### Added
 - Support redis pub/sub for faster joining/parting channels.
