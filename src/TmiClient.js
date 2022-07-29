@@ -217,7 +217,7 @@ export default class TmiClient extends EventEmitter {
 				this.partChannel(channel);
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
-				this.createClient(channel);
+				this.createClient(channel, command.options);
 			}
 			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
 				this.deleteClient(channel);
@@ -225,7 +225,7 @@ export default class TmiClient extends EventEmitter {
 		}
 	}
 
-	async createClient(channel) {
+	async createClient(channel, options) {
 		if (typeof this.callbacks.createClient !== 'function') {
 			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] createClient is not a function, custom clients are disabled.`);
 			return;
@@ -241,7 +241,7 @@ export default class TmiClient extends EventEmitter {
 		this.clients[clientUsername] = null;
 
 		// create client
-		let response = this.callbacks.createClient(clientUsername);
+		let response = this.callbacks.createClient(clientUsername, options);
 
 		if (!(response instanceof Promise)) {
 			response = Promise.resolve(response);

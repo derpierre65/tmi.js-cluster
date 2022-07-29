@@ -255,7 +255,7 @@ export default class RedisChannelDistributor {
 				targetProcess.clients.push(channel);
 
 				if (this.subRedis) {
-					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:client-create`), channel);
+					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:client-create`), channel, command.options);
 					if (recipients === 0) {
 						this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, command.command, command.options);
 					}
