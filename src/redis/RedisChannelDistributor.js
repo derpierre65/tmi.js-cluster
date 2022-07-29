@@ -66,10 +66,10 @@ export default class RedisChannelDistributor {
 	async resolve(processes, channels) {
 		let executed = 0;
 		for (const { action, channel } of channels) {
-			// this channel will be ignored, because it's already joined.
-			const channelProcess = this.isJoined(processes, channel);
-
 			if (action === Enum.CommandQueue.COMMAND_JOIN) {
+				const channelProcess = this.isJoined(processes, channel);
+
+				// this channel will be ignored, because it's already joined.
 				if (channelProcess) {
 					continue;
 				}
@@ -93,6 +93,9 @@ export default class RedisChannelDistributor {
 				}
 			}
 			else if (action === Enum.CommandQueue.COMMAND_PART) {
+				const channelProcess = this.isJoined(processes, channel);
+
+				// this channel will be ignored, because it's not joined.
 				if (!channelProcess) {
 					continue;
 				}
@@ -115,6 +118,12 @@ export default class RedisChannelDistributor {
 				else {
 					this.commandQueue.push(getQueueName(channelProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_PART, { channel });
 				}
+			}
+			else if (action === Enum.CommandQueue.CREATE_CLIENT) {
+				console.debug('TODO: create client event.');
+			}
+			else if (action === Enum.CommandQueue.DELETE_CLIENT) {
+				console.debug('TODO: delete client event.');
 			}
 		}
 
@@ -182,16 +191,36 @@ export default class RedisChannelDistributor {
 			return;
 		}
 
-		const channelQueue = this.getChannelQueue(commands);
-		if (channelQueue.length === 0) {
-			this._executingQueue = false;
+		const { channelQueue, clientQueue } = this.getQueues(commands);
+
+		// running client and channel queue parallel.
+		Promise
+			.all([
+				this._executeQueue(
+					'channel',
+					channelQueue,
+					Math.max(tmiClusterConfig.throttle.join.every, 1),
+					Math.min(tmiClusterConfig.throttle.join.take, tmiClusterConfig.throttle.join.allow),
+				),
+				this._executeQueue(
+					'client',
+					clientQueue,
+					Math.max(tmiClusterConfig.throttle.clients.every, 1),
+					Math.min(tmiClusterConfig.throttle.clients.take, tmiClusterConfig.throttle.clients.allow),
+				),
+			])
+			.then(() => {
+				this._executingQueue = false;
+				process.env.DEBUG_ENABLED && console.debug('[tmi.js-cluster] Channel and client queue finished...');
+			});
+	}
+
+	async _executeQueue(name, queue, every, take) {
+		if (queue.length === 0) {
 			return;
 		}
 
-		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Executing Channel queue (size: ${channelQueue.length})...`);
-
-		const every = Math.max(tmiClusterConfig.throttle.join.every, 1);
-		const take = Math.min(tmiClusterConfig.throttle.join.take, tmiClusterConfig.throttle.join.allow);
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Executing queue ${name} (size: ${queue.length})...`);
 
 		try {
 			do {
@@ -199,16 +228,12 @@ export default class RedisChannelDistributor {
 
 				// if no processes found or the executor has been terminated then we re-queue the commands
 				if (processes.length === 0 || this._terminated) {
-					for (const action of channelQueue) {
-						if (action.action === Enum.CommandQueue.COMMAND_PART) {
-							this.partNow(action.channel);
-						}
-						else if (action.action === Enum.CommandQueue.COMMAND_JOIN) {
-							this.joinNow(action.channel);
-						}
+					for (let index = queue.length - 1; index >= 0; index--) {
+						let action = queue[index];
+						this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, action.command, action.options);
 					}
 
-					process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] Queue canceled and all commands are pushed back into the queue.`);
+					process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Queue canceled and all commands are pushed back into the queue.`);
 
 					break;
 				}
@@ -217,27 +242,24 @@ export default class RedisChannelDistributor {
 				await this.lock.block('handle-queue', (every + 1) * 1_000);
 
 				// execute queue
-				const step = channelQueue.splice(0, take);
+				const step = queue.splice(0, take);
 				const start = Date.now();
 				const executed = await this.resolve(processes, step);
 
 				// if more channels are available then wait for "every" seconds otherwise we finish the queue and let expire the redis lock.
-				if (channelQueue.length && executed) {
+				if (queue.length && executed) {
 					await new Promise((resolve) => {
 						// we need to add some time, it's not important if you have a verified bot because the limit would be high enough to join/part enough channels.
 						// the command execution can take some time and could be result with a "no response from twitch" for unverified users
 						setTimeout(resolve, every * 1_000 + (Date.now() - start) * 2);
 					});
 				}
-			} while (channelQueue.length);
+			} while (queue.length);
 		}
 		catch (error) {
-			console.error('Failed to handle the queue:');
+			console.error(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Failed to execute queue ${name}:`);
 			console.error(error);
 		}
-
-		this._executingQueue = false;
-		process.env.DEBUG_ENABLED && console.debug('[tmi.js-cluster] Channel queue finished...');
 	}
 
 	async getProcesses() {
@@ -319,44 +341,87 @@ export default class RedisChannelDistributor {
 		}
 	}
 
-	getChannelQueue(commands) {
+	getQueues(commands) {
 		const channelQueue = [];
+		const clientQueue = [];
+
 		for (const command of commands) {
-			if (command.command !== Enum.CommandQueue.COMMAND_JOIN && command.command !== Enum.CommandQueue.COMMAND_PART) {
-				continue;
+			// create and delete client event
+			if (command.command === Enum.CommandQueue.CREATE_CLIENT || command.command === Enum.CommandQueue.DELETE_CLIENT) {
+				const channel = channelSanitize(command.options.channel);
+				const createIndex = clientQueue.findIndex((entry) => entry.channel === channel && entry.action === Enum.CommandQueue.CREATE_CLIENT);
+				const deleteIndex = clientQueue.findIndex((entry) => entry.channel === channel && entry.action === Enum.CommandQueue.DELETE_CLIENT);
+
+				if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
+					// we drop the deletion because a creation should be executed after the deletion.
+					if (deleteIndex >= 0) {
+						clientQueue.splice(deleteIndex);
+					}
+
+					// skip create command a create command is already in the queue.
+					if (createIndex >= 0) {
+						continue;
+					}
+				}
+				else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
+					// we drop the creation because a deletion should be executed after the creation.
+					if (createIndex >= 0) {
+						clientQueue.splice(createIndex);
+					}
+
+					// skip deletion command a deletion command is already in the queue.
+					if (deleteIndex >= 0) {
+						continue;
+					}
+				}
+
+				clientQueue.push(command);
 			}
+			// join and part events
+			else if (command.command === Enum.CommandQueue.COMMAND_JOIN || command.command === Enum.CommandQueue.COMMAND_PART) {
+				const commandChannels = command.options.channels || [];
 
-			const commandChannels = command.options.channels || [];
+				for (let channel of commandChannels) {
+					channel = channelSanitize(channel);
 
-			for (let channel of commandChannels) {
-				channel = channelSanitize(channel);
+					const joinIndex = channelQueue.findIndex((entry) => entry.options.channels[0] === channel && entry.command === Enum.CommandQueue.COMMAND_JOIN);
+					const partIndex = channelQueue.findIndex((entry) => entry.options.channels[0] === channel && entry.command === Enum.CommandQueue.COMMAND_PART);
 
-				if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
-					const index = channelQueue.findIndex((entry) => entry.channel === channel && entry.action === Enum.CommandQueue.COMMAND_JOIN);
-					if (index >= 0) {
-						continue;
+					if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
+						// we drop the part because a join should be executed after the join.
+						if (partIndex >= 0) {
+							channelQueue.splice(partIndex);
+						}
+
+						// skip join command a join command is already in the queue.
+						if (joinIndex >= 0) {
+							continue;
+						}
 					}
-				}
-				else if (command.command === Enum.CommandQueue.COMMAND_PART) {
-					const index = channelQueue.findIndex((entry) => entry.channel === channel && entry.action === Enum.CommandQueue.COMMAND_JOIN);
+					else if (command.command === Enum.CommandQueue.COMMAND_PART) {
+						// we drop the join because a part should be executed after the join.
+						if (joinIndex >= 0) {
+							channelQueue.splice(joinIndex, 1);
+						}
 
-					// drop channel from queue if a join hgs been found before the part command.
-					if (index >= 0) {
-						console.debug('skipping, has a join before the part.', channel);
-						channelQueue.splice(index, 1);
-
-						continue;
+						// skip part command a join command is already in the queue.
+						if (partIndex >= 0) {
+							continue;
+						}
 					}
-				}
 
-				channelQueue.push({
-					action: command.command,
-					channel,
-				});
+					channelQueue.push({
+						command: command.command,
+						options: {
+							...command.options,
+							channels: [channel],
+						},
+					});
+				}
 			}
 		}
 
-		return channelQueue;
+		return { channelQueue, clientQueue };
 	}
 
 	isJoined(processes, channel) {
