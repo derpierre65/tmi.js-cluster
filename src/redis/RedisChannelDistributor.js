@@ -65,8 +65,9 @@ export default class RedisChannelDistributor {
 
 	async resolve(processes, channels) {
 		let executed = 0;
-		for (const { action, channel } of channels) {
-			if (action === Enum.CommandQueue.COMMAND_JOIN) {
+		for (const command of channels) {
+			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
+				const channel = command.options.channels[0];
 				const channelProcess = this.isJoined(processes, channel);
 
 				// this channel will be ignored, because it's already joined.
@@ -92,7 +93,8 @@ export default class RedisChannelDistributor {
 					this.commandQueue.push(getQueueName(targetProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_JOIN, { channel });
 				}
 			}
-			else if (action === Enum.CommandQueue.COMMAND_PART) {
+			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
+				const channel = command.options.channels[0];
 				const channelProcess = this.isJoined(processes, channel);
 
 				// this channel will be ignored, because it's not joined.
@@ -119,10 +121,10 @@ export default class RedisChannelDistributor {
 					this.commandQueue.push(getQueueName(channelProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_PART, { channel });
 				}
 			}
-			else if (action === Enum.CommandQueue.CREATE_CLIENT) {
+			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
 				console.debug('TODO: create client event.');
 			}
-			else if (action === Enum.CommandQueue.DELETE_CLIENT) {
+			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
 				console.debug('TODO: delete client event.');
 			}
 		}
@@ -194,6 +196,7 @@ export default class RedisChannelDistributor {
 		const { channelQueue, clientQueue } = this.getQueues(commands);
 
 		// running client and channel queue parallel.
+		// maybe we split the execution of channel and client queue, because we don't want to waste the low limit for unverified bots and waiting for the client creation.
 		Promise
 			.all([
 				this._executeQueue(
@@ -229,11 +232,11 @@ export default class RedisChannelDistributor {
 				// if no processes found or the executor has been terminated then we re-queue the commands
 				if (processes.length === 0 || this._terminated) {
 					for (let index = queue.length - 1; index >= 0; index--) {
-						let action = queue[index];
+						const action = queue[index];
 						this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, action.command, action.options);
 					}
 
-					process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Queue canceled and all commands are pushed back into the queue.`);
+					process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Queue ${name} canceled and all commands are pushed back into the queue.`);
 
 					break;
 				}

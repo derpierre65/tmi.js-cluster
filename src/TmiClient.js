@@ -26,6 +26,7 @@ export default class TmiClient extends EventEmitter {
 
 		this.id = process.env.PROCESS_ID;
 		this.database = options.database || null;
+		this.clients = {};
 		this.callbacks = callbacks || {
 			createClient: null,
 		};
@@ -37,7 +38,6 @@ export default class TmiClient extends EventEmitter {
 		};
 		this._client = options.tmiClient;
 		this._terminating = false;
-		this.clients = {};
 		this._disconnectedSince = 0;
 		this._channelDistributor = new options.channelDistributor(options);
 		this._commandQueue = this._channelDistributor.commandQueue;
@@ -99,12 +99,13 @@ export default class TmiClient extends EventEmitter {
 
 		// tmi js disconnected hook
 		this._client.on('disconnected', () => {
+			process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Main Client disconnected. Terminate Process.`);
+
 			this.terminate();
 		});
 
 		// tmi.js hook for metrics
 		this._addMetricEvents(this._client);
-		this.emit('tmi.client.created', null, null, this._client);
 	}
 
 	async joinChannel(channel) {
@@ -298,6 +299,8 @@ export default class TmiClient extends EventEmitter {
 			clearInterval(this._interval);
 
 			try {
+				process.env.DEBUG_ENABLED && console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Main Client disconnected since 15s, terminating...`);
+
 				await this.terminate();
 			}
 			catch (error) {

@@ -5,8 +5,6 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "babel src --out-dir dist --copy-files --no-copy-ignored",
-    "vue:build": "mix build -p",
-    "vue:hot": "mix watch --hot",
     "prepare": "npm run build"
   },
   "keywords": [

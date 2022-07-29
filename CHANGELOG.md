@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Breaking Change**: Flipped the `tmi.join` and `tmi.part` arguments (first is the error (`null` if no error occurred), second the channel name).
 
+### Fixed
+- The order of queue commands was wrong if a client will be terminated and have an active queue in progress.
+
 ### Removed
 - Dropped `tmi.join_error` and `tmi.part_error`.
 
