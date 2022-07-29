@@ -241,7 +241,7 @@ export default class TmiClient extends EventEmitter {
 		this.clients[clientUsername] = null;
 
 		// create client
-		let response = this.callbacks.createClient();
+		let response = this.callbacks.createClient(clientUsername);
 
 		if (!(response instanceof Promise)) {
 			response = Promise.resolve(response);

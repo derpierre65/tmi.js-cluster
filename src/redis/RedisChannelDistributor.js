@@ -19,6 +19,8 @@ export default class RedisChannelDistributor {
 		if (process.env.TMI_CLUSTER_ROLE === 'tmi-client' && TmiClientInstance && this.subRedis) {
 			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:join`), this._onJoin.bind(this));
 			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:part`), this._onPart.bind(this));
+			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:client-create`), this._onClientCreate.bind(this));
+			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:client-delete`), this._onClientDelete.bind(this));
 		}
 		else if (process.env.TMI_CLUSTER_ROLE === 'supervisor') {
 			setInterval(() => {
@@ -122,7 +124,31 @@ export default class RedisChannelDistributor {
 				}
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
-				console.debug('TODO: create client event.');
+				const channel = command.options.channel;
+				const channelProcess = this.isJoined(processes, channel);
+
+				// this channel will be ignored, because it's already joined.
+				if (channelProcess) {
+					continue;
+				}
+
+				executed++;
+
+				processes.sort((processA, processB) => processA.clientSum > processB.clientSum ? 1 : -1);
+
+				const targetProcess = processes[0];
+				targetProcess.clientSum++;
+				targetProcess.clients.push(channel);
+
+				if (this.subRedis) {
+					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:client-create`), channel);
+					if (recipients === 0) {
+						this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, command.command, command.options);
+					}
+				}
+				else {
+					this.commandQueue.push(getQueueName(targetProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.CREATE_CLIENT, { channel });
+				}
 			}
 			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
 				console.debug('TODO: delete client event.');
@@ -431,6 +457,14 @@ export default class RedisChannelDistributor {
 		return processes.find((process) => {
 			return process.channels.includes(channel);
 		});
+	}
+
+	_onClientCreate(channel) {
+		TmiClientInstance._createClient(channel);
+	}
+
+	_onClientDelete(channel) {
+		TmiClientInstance._deleteClient(channel);
 	}
 
 	_onJoin(channels) {
