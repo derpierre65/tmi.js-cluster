@@ -389,7 +389,7 @@ export default class TmiClient extends EventEmitter {
 			}
 		}
 
-		return null;
+		return this._client;
 	}
 
 	getChannels() {
