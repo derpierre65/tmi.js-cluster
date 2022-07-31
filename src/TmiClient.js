@@ -1,6 +1,6 @@
 import EventEmitter from 'node:events';
 import * as Enum from './lib/enums';
-import {channelUsername, getQueueName, unique} from './lib/util';
+import {channelSanitize, getQueueName, unique} from './lib/util';
 import SignalListener from './SignalListener';
 
 /**
@@ -381,8 +381,15 @@ export default class TmiClient extends EventEmitter {
 		this.emit('tmi.client.created', null, null, this._client);
 	}
 
-	getClient(username) {
-		return this.clients[channelUsername(username)] || this._client;
+	getClient(channel) {
+		channel = channelSanitize(channel);
+		for (const client of [this._client, ...Object.values(this.clients)]) {
+			if (client.getChannels().includes(channel)) {
+				return client;
+			}
+		}
+
+		return null;
 	}
 
 	getChannels() {
