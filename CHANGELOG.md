@@ -15,10 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The order of queue commands was wrong if a client will be terminated and have an active queue in progress.
 
 ### Removed
+- **Breaking Change**: Removed `joinNow` and `partNow` in ChannelDistributor. Can be replaced with the new second argument in `join` and `part`.
 - Dropped `tmi.join_error` and `tmi.part_error`.
-
-### Deprecated
-- `joinNow` and `partNow` in ChannelDistributor is now deprecated. Can be replaced with the new second argument in `join` and `part`.
 
 ## [1.0.0-alpha.1] - 2022-07-29
 ### Added

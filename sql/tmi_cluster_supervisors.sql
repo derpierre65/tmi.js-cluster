@@ -24,3 +24,13 @@ CREATE TABLE tmi_cluster_supervisor_processes (
 
 -- update 1.0.0-alpha.2
 ALTER TABLE tmi_cluster_supervisor_processes ADD COLUMN clients LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`clients`)) AFTER channels;
+
+-- only need this table if you enable multi clients
+CREATE TABLE tmi_cluster_supervisor_channel_clients (
+	channel VARCHAR(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+	username VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+	password VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+	created_at TIMESTAMP NULL DEFAULT NULL,
+	updated_at TIMESTAMP NULL DEFAULT NULL,
+	PRIMARY KEY (channel)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

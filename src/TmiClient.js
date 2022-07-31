@@ -1,6 +1,6 @@
 import EventEmitter from 'node:events';
 import * as Enum from './lib/enums';
-import {getQueueName, unique} from './lib/util';
+import {channelUsername, getQueueName, unique} from './lib/util';
 import SignalListener from './SignalListener';
 
 /**
@@ -36,6 +36,7 @@ export default class TmiClient extends EventEmitter {
 			rawMessages: 0,
 			queueCommands: 0,
 		};
+		this._clientChannels = {};
 		this._client = options.tmiClient;
 		this._terminating = false;
 		this._disconnectedSince = 0;
@@ -49,7 +50,7 @@ export default class TmiClient extends EventEmitter {
 			}
 
 			const currentState = this._client.readyState();
-			const currentChannels = unique(this._client.getChannels());
+			const currentChannels = this.getChannels();
 
 			await this._checkDisconnect(currentState);
 
@@ -113,6 +114,11 @@ export default class TmiClient extends EventEmitter {
 	}
 
 	async joinChannel(channel) {
+		if (!channel) {
+			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] channel argument is an invalid channel name:`, channel);
+			return;
+		}
+
 		if (this._terminating) {
 			this._channelDistributor.join(channel, true);
 
@@ -153,8 +159,40 @@ export default class TmiClient extends EventEmitter {
 			return;
 		}
 
-		return this
-			._client
+		if (!tmiClusterConfig.multiClients.enabled) {
+			return this._partChannel(this._client, channel);
+		}
+
+		// search channel in main client
+		if (this._client.getChannels().includes(channel)) {
+			return this._partChannel(this._client, channel);
+		}
+
+		console.log(this._clientChannels, channel);
+
+		// search channel in custom client
+		for (const username of Object.keys(this.clients)) {
+			const client = this.clients[username];
+			if (client.getChannels().includes(channel)) {
+				return this
+					._partChannel(client, channel)
+					.then(() => {
+						const index = this._clientChannels[username].indexOf(channel);
+						if (index >= 0) {
+							this._clientChannels[username].splice(index, 1);
+						}
+
+						// no more channels in this client, we close it
+						if (client.getChannels().length === 0) {
+							this.deleteClient(username);
+						}
+					});
+			}
+		}
+	}
+
+	_partChannel(client, channel) {
+		return client
 			.part(channel)
 			.then(() => {
 				return null;
@@ -182,7 +220,7 @@ export default class TmiClient extends EventEmitter {
 		// we are saving the current channels and set state to TERMINATED
 		// it can happen that the process will terminate after the tmi client joined a channel but before the database channel update
 		// this would cause that channels will be dropped and not rejoined.
-		const currentChannels = unique(this._client.getChannels());
+		const currentChannels = this.getChannels();
 		await new Promise((resolve) => {
 			const currentClients = Object.keys(this.clients);
 
@@ -216,7 +254,13 @@ export default class TmiClient extends EventEmitter {
 		for (const command of commands) {
 			this._metrics.queueCommands++;
 
-			const channel = command.options.channel;
+			// safety check, ignore queue command without options or where channels key is not an array
+			if (!command.options || !Array.isArray(command.options.channels)) {
+				continue;
+			}
+
+			// we can use channels[0], we know that channels has only ONE channel otherwise the developer pushed the command queue and this would be stupid
+			const channel = command.options.channels[0];
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
 				this.joinChannel(channel);
 			}
@@ -224,31 +268,49 @@ export default class TmiClient extends EventEmitter {
 				this.partChannel(channel);
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
-				this.createClient(channel, command.options);
-			}
-			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
-				this.deleteClient(channel);
+				this.createClient(command.options);
 			}
 		}
 	}
 
-	async createClient(channel, options) {
+	async createClient(data) {
+		if (!tmiClusterConfig.multiClients.enabled) {
+			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Custom clients are disabled.`);
+			return;
+		}
+
 		if (typeof this.callbacks.createClient !== 'function') {
 			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] createClient is not a function, custom clients are disabled.`);
 			return;
 		}
 
-		const clientUsername = channel.replace(/#/g, '').toLowerCase();
+		const clientUsername = data.username;
 
 		if (this.clients.hasOwnProperty(clientUsername)) {
-			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] ${clientUsername} has already a client, this shouldn't be happen. Abort to create another one.`);
+			const client = this.clients[clientUsername];
+			const clientIsConnected = client && client.readyState() === 'OPEN';
+			const currentChannels = client.getChannels();
+
+			console.log('check', data.channels);
+
+			for (const channel of data.channels) {
+				if (clientIsConnected && !currentChannels.includes(channel)) {
+					client.join(channel);
+				}
+
+				if (!this._clientChannels[clientUsername].includes(channel)) {
+					this._clientChannels[clientUsername].push(channel);
+				}
+			}
+
 			return;
 		}
 
 		this.clients[clientUsername] = null;
+		this._clientChannels[clientUsername] = data.channels;
 
 		// create client
-		let response = this.callbacks.createClient(clientUsername, options);
+		let response = this.callbacks.createClient(data);
 
 		if (!(response instanceof Promise)) {
 			response = Promise.resolve(response);
@@ -264,17 +326,19 @@ export default class TmiClient extends EventEmitter {
 				this.clients[clientUsername] = newClient;
 				this._addMetricEvents(newClient);
 
-				newClient.on('connect', () => {
-					newClient.join(channel);
+				newClient.on('connected', () => {
+					for (const channel of this._clientChannels[clientUsername]) {
+						newClient.join(channel);
+					}
 				});
 
-				newClient.on('disconnect', () => {
+				newClient.on('disconnected', () => {
 					if (newClient.readyState() !== 'CLOSED') {
 						newClient.disconnect();
 					}
 
 					if (this.clients[clientUsername]) {
-						this.deleteClient(clientUsername, true);
+						this.deleteClient(clientUsername);
 					}
 				});
 
@@ -313,19 +377,43 @@ export default class TmiClient extends EventEmitter {
 		}
 	}
 
-	deleteClient(channel, recreate) {
-		if (recreate) {
-			this._channelDistributor.createClient(channel, true);
+	start() {
+		this.emit('tmi.client.created', null, null, this._client);
+	}
+
+	getClient(username) {
+		return this.clients[channelUsername(username)] || this._client;
+	}
+
+	getChannels() {
+		const channels = [];
+		for (const client of [this._client, ...Object.values(this.clients)]) {
+			channels.push(...client.getChannels());
 		}
 
-		const clientUsername = channel.replace(/#/g, '').toLowerCase();
-		const client = this.clients[clientUsername];
+		return unique(channels);
+	}
 
-		this.emit('tmi.client.deleted', clientUsername, this.clients[clientUsername]);
+	deleteClient(clientName) {
+		if (!tmiClusterConfig.multiClients.enabled) {
+			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Custom clients are disabled.`);
+			return;
+		}
 
-		delete this.clients[clientUsername];
+		const client = this.clients[clientName];
+		const channels = client.getChannels();
 
-		if (!recreate && client.readyState() !== 'CLOSED') {
+		// re-join, the queue manager will create a new client if required.
+		if (channels.length) {
+			this._channelDistributor.join(channels);
+		}
+
+		this.emit('tmi.client.deleted', clientName, client);
+
+		delete this.clients[clientName];
+		delete this._clientChannels[clientName];
+
+		if (client.readyState() !== 'CLOSED') {
 			client.disconnect();
 		}
 	}

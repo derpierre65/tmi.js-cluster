@@ -1,5 +1,5 @@
 import * as Enum from '../lib/enums';
-import {channelSanitize, getQueueName, getRedisKey, unique} from '../lib/util';
+import {channelSanitize, channelUsername, getQueueName, getRedisKey, unique} from '../lib/util';
 import {SupervisorInstance} from '../Supervisor';
 import {TmiClientInstance} from '../TmiClient';
 import RedisCommandQueue from './RedisCommandQueue';
@@ -20,7 +20,6 @@ export default class RedisChannelDistributor {
 			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:join`), this._onJoin.bind(this));
 			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:part`), this._onPart.bind(this));
 			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:client-create`), this._onClientCreate.bind(this));
-			this.subRedis.subscribe(getRedisKey(`${process.env.PROCESS_ID}:client-delete`), this._onClientDelete.bind(this));
 		}
 		else if (process.env.TMI_CLUSTER_ROLE === 'supervisor') {
 			setInterval(() => {
@@ -67,7 +66,6 @@ export default class RedisChannelDistributor {
 		const processStaleAfter = SupervisorInstance._config.process.stale * 1_000;
 		const deleteSupervisorIds = [];
 		const staleIds = [];
-		let clients = [];
 		let channels = [];
 
 		for (const supervisor of supervisors) {
@@ -83,7 +81,6 @@ export default class RedisChannelDistributor {
 
 			staleIds.push(supervisorProcess.id);
 			channels.push(...JSON.parse(supervisorProcess.channels));
-			clients.push(...JSON.parse(supervisorProcess.clients));
 		}
 
 		if (deleteSupervisorIds.length > 0) {
@@ -97,10 +94,6 @@ export default class RedisChannelDistributor {
 		channels = unique(channels.map(channelSanitize));
 
 		await this.join(channels, true);
-
-		for (const client of clients) {
-			await this.createClient(client);
-		}
 	}
 
 	async getProcesses() {
@@ -169,6 +162,69 @@ export default class RedisChannelDistributor {
 
 		const { channelQueue, clientQueue } = this.getQueues(commands);
 
+		// we check if any channel should join a custom client and if custom clients is enabled.
+		if (tmiClusterConfig.multiClients.enabled) {
+			const commandGroups = {};
+			for (const command of channelQueue) {
+				if (typeof commandGroups[command.command] === 'undefined') {
+					commandGroups[command.command] = [];
+				}
+				commandGroups[command.command].push(command);
+			}
+
+			if (commandGroups[Enum.CommandQueue.COMMAND_JOIN] && commandGroups[Enum.CommandQueue.COMMAND_JOIN].length) {
+				let channelList = [];
+				for (const command of commandGroups[Enum.CommandQueue.COMMAND_JOIN]) {
+					channelList.push(command.options.channels[0]); // we know that only one channel is in this command
+				}
+
+				channelList = unique(channelList);
+
+				try {
+					const clients = {};
+					const channelClients = await new Promise((resolve, reject) => SupervisorInstance.database.query('SELECT * FROM tmi_cluster_supervisor_channel_clients WHERE channel IN (?);', [channelList.map(channelUsername)], (error, rows) => {
+						if (error) {
+							return reject(error);
+						}
+
+						resolve(rows);
+					}));
+
+					for (const client of channelClients) {
+						let username = channelUsername(client.username);
+						if (typeof clients[username] === 'undefined') {
+							clients[username] = {
+								channels: [],
+								password: client.password,
+								username,
+							};
+						}
+
+						clients[username].channels.push(channelSanitize(client.channel));
+					}
+
+					for (const client of Object.values(clients)) {
+						for (const channel of client.channels) {
+							const index = channelQueue.findIndex((command) => command.command === Enum.CommandQueue.COMMAND_JOIN && command.options.channels[0] === channel);
+							if (index >= 0) {
+								channelQueue.splice(index, 1);
+								console.debug(`Skip joining ${channel}, should join into a custom client.`);
+							}
+						}
+
+						clientQueue.push({
+							command: Enum.CommandQueue.CREATE_CLIENT,
+							options: client,
+						});
+					}
+				}
+				catch (error) {
+					console.error(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Fail to fetch custom clients, channels will joined with the main client.`);
+					console.error(error);
+				}
+			}
+		}
+
 		// running client and channel queue parallel.
 		// maybe we split the execution of channel and client queue, because we don't want to waste the low limit for unverified bots and waiting for the client creation.
 		Promise
@@ -209,80 +265,35 @@ export default class RedisChannelDistributor {
 				processes.sort((processA, processB) => processA.channelSum > processB.channelSum ? 1 : -1);
 
 				const targetProcess = processes[0];
-				targetProcess.channelSum++;
-				targetProcess.channels.push(channel);
-
-				if (this.subRedis) {
-					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:join`), channel);
-					if (recipients === 0) {
-						this.join(channel, true); // re-queue join
-					}
-				}
-				else {
-					this.commandQueue.push(getQueueName(targetProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_JOIN, { channel });
+				if (await this._sendPubSub(`${targetProcess.id}:join`, targetProcess.id, command.command, command.options)) {
+					targetProcess.channelSum++;
+					targetProcess.channels.push(channel);
 				}
 			}
 			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
 				const channel = command.options.channels[0];
 				const channelProcess = this.isJoined(processes, channel);
-				const clientProcess = this.hasClient(processes, channel);
 
-				if (await this._resolveChannelPart(channelProcess, channel)) {
+				if (await this._resolveChannelPart(channelProcess, command)) {
 					executed++;
-				}
-
-				// if we want to delete the client too on part then delete it
-				// TODO the rate limit for client throttle will ignored here it should not be a problem but maybe we must push it into the queue. maybe push it into commands
-				if (command.options.deleteClient) {
-					await this._resolveClientDelete(clientProcess, channel);
 				}
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
-				const channel = command.options.channel;
-				const channelProcess = this.isJoined(processes, channel);
-				const clientProcess = this.hasClient(processes, channel);
-
-				// we part this channel with the main bot
-				if (channelProcess) {
-					this.part(channel, true);
-				}
-
-				// we ignore the create client command if we already have a client process
-				if (clientProcess) {
-					continue;
-				}
+				let targetProcess = this.hasClient(processes, command.options.username);
 
 				executed++;
 
-				processes.sort((processA, processB) => processA.clientSum > processB.clientSum ? 1 : -1);
+				// if no client exists with this username we create a new one on a process with the lowest client count.
+				if (!targetProcess) {
+					processes.sort((processA, processB) => processA.clientSum > processB.clientSum ? 1 : -1);
 
-				const targetProcess = processes[0];
-				targetProcess.clientSum++;
-				targetProcess.clients.push(channel);
+					targetProcess = processes[0];
+					targetProcess.clientSum++;
+					targetProcess.clients.push(command.options.username);
+				}
 
-				if (this.subRedis) {
-					const recipients = await this.pubRedis.publish(getRedisKey(`${targetProcess.id}:client-create`), JSON.stringify({
-						channel,
-						options: command.options,
-					}));
-					if (recipients === 0) {
-						this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, command.command, command.options);
-					}
-				}
-				else {
-					this.commandQueue.push(getQueueName(targetProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.CREATE_CLIENT, {
-						channel,
-						options: command.options,
-					});
-				}
-			}
-			else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
-				const channel = command.options.channel;
-				const clientProcess = this.hasClient(processes, channel);
-
-				if (await this._resolveClientDelete(clientProcess, channel, command.options)) {
-					executed++;
-				}
+				// send command to process
+				await this._sendPubSub(`${targetProcess.id}:client-create`, targetProcess.id, command.command, command.options);
 			}
 		}
 
@@ -329,70 +340,13 @@ export default class RedisChannelDistributor {
 		return this._channelAction(channels, now ? 'unshift' : 'push', Enum.CommandQueue.COMMAND_PART);
 	}
 
-	createClient(channel, now = false) {
-		this.commandQueue[now ? 'unshift' : 'push'](Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.CREATE_CLIENT, {
-			channel,
-		});
-	}
-
-	deleteClient(channel, now = false) {
-		this.commandQueue[now ? 'unshift' : 'push'](Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.DELETE_CLIENT, {
-			channel,
-		});
-	}
-
-	/**
-	 * @deprecated
-	 */
-	joinNow(channels) {
-		return this._channelAction(channels, 'unshift');
-	}
-
-	/**
-	 * @deprecated
-	 */
-	partNow(channels) {
-		return this._channelAction(channels, 'unshift', Enum.CommandQueue.COMMAND_PART);
-	}
-
 	getQueues(commands) {
 		const channelQueue = [];
 		const clientQueue = [];
 
 		for (const command of commands) {
-			// create and delete client event
-			if (command.command === Enum.CommandQueue.CREATE_CLIENT || command.command === Enum.CommandQueue.DELETE_CLIENT) {
-				const channel = channelSanitize(command.options.channel);
-				const createIndex = clientQueue.findIndex((entry) => entry.channel === channel && entry.action === Enum.CommandQueue.CREATE_CLIENT);
-				const deleteIndex = clientQueue.findIndex((entry) => entry.channel === channel && entry.action === Enum.CommandQueue.DELETE_CLIENT);
-
-				if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
-					// we drop the deletion because a creation should be executed after the deletion.
-					if (deleteIndex >= 0) {
-						clientQueue.splice(deleteIndex);
-					}
-
-					// skip create command a create command is already in the queue.
-					if (createIndex >= 0) {
-						continue;
-					}
-				}
-				else if (command.command === Enum.CommandQueue.DELETE_CLIENT) {
-					// we drop the creation because a deletion should be executed after the creation.
-					if (createIndex >= 0) {
-						clientQueue.splice(createIndex);
-					}
-
-					// skip deletion command a deletion command is already in the queue.
-					if (deleteIndex >= 0) {
-						continue;
-					}
-				}
-
-				clientQueue.push(command);
-			}
 			// join and part events
-			else if (command.command === Enum.CommandQueue.COMMAND_JOIN || command.command === Enum.CommandQueue.COMMAND_PART) {
+			if (command.command === Enum.CommandQueue.COMMAND_JOIN || command.command === Enum.CommandQueue.COMMAND_PART) {
 				const commandChannels = command.options.channels || [];
 
 				for (let channel of commandChannels) {
@@ -497,75 +451,34 @@ export default class RedisChannelDistributor {
 		}
 	}
 
-	async _resolveChannelPart(channelProcess, channel) {
+	async _resolveChannelPart(channelProcess, command) {
 		// this channel will be ignored, because it's not joined.
 		if (!channelProcess) {
 			return false;
 		}
 
-		let index = channelProcess.channels.indexOf(channel);
+		let index = channelProcess.channels.indexOf(command.options.channels[0]);
 		if (index === -1) {
 			return false;
 		}
 
-		channelProcess.channelSum--;
-		channelProcess.channels.splice(index, 1);
+		if (await this._sendPubSub(`${channelProcess.id}:part`, channelProcess.id, command.command, command.options)) {
+			channelProcess.channelSum--;
+			channelProcess.channels.splice(index, 1);
 
-		if (this.subRedis) {
-			const recipients = await this.pubRedis.publish(getRedisKey(`${channelProcess.id}:part`), channel);
-			if (recipients === 0) {
-				this.part(channel, true); // re-queue part
-			}
-		}
-		else {
-			this.commandQueue.push(getQueueName(channelProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.COMMAND_PART, { channel });
+			return true;
 		}
 
-		return true;
+		return false;
 	}
 
-	async _resolveClientDelete(clientProcess, channel, options = {}) {
-		if (!clientProcess) {
-			return false;
-		}
-
-		let index = clientProcess.clients.indexOf(channel);
-		if (index === -1) {
-			return false;
-		}
-
-		clientProcess.clientSum++;
-		clientProcess.clients.splice(index, 1);
-
-		const data = {
-			channel,
-			options,
-		};
-
-		if (this.subRedis) {
-			const recipients = await this.pubRedis.publish(getRedisKey(`${clientProcess.id}:client-delete`), JSON.stringify(data));
-			if (recipients === 0) {
-				this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, Enum.CommandQueue.DELETE_CLIENT, data);
-			}
-		}
-		else {
-			this.commandQueue.push(getQueueName(clientProcess.id, Enum.CommandQueue.INPUT_QUEUE), Enum.CommandQueue.DELETE_CLIENT, data);
-		}
-
-		return true;
+	_onClientCreate(message) {
+		TmiClientInstance.createClient(JSON.parse(message));
 	}
 
-	_onClientCreate(data) {
-		data = JSON.parse(data);
+	_onJoin(message) {
+		let { channels } = JSON.parse(message);
 
-		TmiClientInstance.createClient(data.channel, data.options);
-	}
-
-	_onClientDelete(channel) {
-		TmiClientInstance.deleteClient(channel);
-	}
-
-	_onJoin(channels) {
 		if (!Array.isArray(channels)) {
 			channels = [channels];
 		}
@@ -575,7 +488,9 @@ export default class RedisChannelDistributor {
 		}
 	}
 
-	_onPart(channels) {
+	_onPart(message) {
+		let { channels } = JSON.parse(message);
+
 		if (!Array.isArray(channels)) {
 			channels = [channels];
 		}
@@ -599,5 +514,20 @@ export default class RedisChannelDistributor {
 		return this.commandQueue[queueAction](Enum.CommandQueue.JOIN_HANDLER, command || Enum.CommandQueue.COMMAND_JOIN, {
 			channels,
 		});
+	}
+
+	async _sendPubSub(target, queueName, command, options) {
+		if (this.subRedis) {
+			const recipients = await this.pubRedis.publish(getRedisKey(target), JSON.stringify(options));
+			if (recipients === 0) {
+				this.commandQueue.unshift(Enum.CommandQueue.JOIN_HANDLER, command, options);
+				return false;
+			}
+		}
+		else {
+			this.commandQueue.push(getQueueName(queueName, Enum.CommandQueue.INPUT_QUEUE), command, options);
+		}
+
+		return true;
 	}
 }

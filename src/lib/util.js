@@ -6,6 +6,10 @@ function channelSanitize(channel) {
 	return channel.toLowerCase();
 }
 
+function channelUsername(channel) {
+	return channel.replace(/#/g, '').toLowerCase();
+}
+
 function getQueueName(processId, name) {
 	return [processId, name].join('-');
 }
@@ -23,4 +27,5 @@ export {
 	getQueueName,
 	getRedisKey,
 	unique,
+	channelUsername,
 };

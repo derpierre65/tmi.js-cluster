@@ -21,14 +21,14 @@ export default class Supervisor extends EventEmitter {
 	constructor(options, config) {
 		super();
 
-		console.log(fs.readFileSync(__dirname + '/motd.txt').toString());
-		console.log(`You are running tmi.js-cluster v${data.version}.`);
+		console.info(fs.readFileSync(__dirname + '/motd.txt').toString());
+		console.info(`You are running tmi.js-cluster v${data.version}.`);
 
 		if (data.version.includes('alpha')) {
 			console.warn('Warning: This is an alpha build. It\'s not recommended running it in production.');
 		}
 
-		console.log('');
+		console.info('');
 
 		process.env.TMI_CLUSTER_ROLE = 'supervisor';
 
@@ -48,6 +48,9 @@ export default class Supervisor extends EventEmitter {
 				stale: 15,
 				periodicTimer: 2_000,
 				timeout: 60_000,
+			},
+			multiClients: {
+				enabled: true,
 			},
 			metrics: {
 				enabled: true,
@@ -179,14 +182,14 @@ export default class Supervisor extends EventEmitter {
 		this.emit('supervisor.terminate', this.id);
 		clearInterval(this._interval);
 
-		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] Terminating ${this.id}...`);
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${this.id}] Terminating...`);
 
 		return this
 			.getPromise('terminate')
 			.then(() => this._processPool.terminate())
 			.then(() => this._channelDistributor.terminate())
 			.then(() => {
-				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] ${this.id} terminated.`);
+				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${this.id}] Terminated.`);
 				process.exit(0);
 			});
 	}
