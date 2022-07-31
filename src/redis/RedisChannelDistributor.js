@@ -162,7 +162,7 @@ export default class RedisChannelDistributor {
 
 		const { channelQueue, clientQueue } = this.getQueues(commands);
 
-		// we check if any channel should join a custom client and if custom clients is enabled.
+		// we check if any channel should join a custom client if multi clients is enabled.
 		if (tmiClusterConfig.multiClients.enabled) {
 			const commandGroups = {};
 			for (const command of channelQueue) {
@@ -208,7 +208,6 @@ export default class RedisChannelDistributor {
 							const index = channelQueue.findIndex((command) => command.command === Enum.CommandQueue.COMMAND_JOIN && command.options.channels[0] === channel);
 							if (index >= 0) {
 								channelQueue.splice(index, 1);
-								console.debug(`Skip joining ${channel}, should join into a custom client.`);
 							}
 						}
 

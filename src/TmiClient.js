@@ -113,7 +113,7 @@ export default class TmiClient extends EventEmitter {
 		this._addMetricEvents(this._client);
 	}
 
-	async joinChannel(channel) {
+	async joinChannel(channel, client) {
 		if (!channel) {
 			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] channel argument is an invalid channel name:`, channel);
 			return;
@@ -125,16 +125,17 @@ export default class TmiClient extends EventEmitter {
 			return;
 		}
 
-		return this
-			._client
+		client = client || this._client;
+
+		return client
 			.join(channel)
 			.then(() => {
-				return this._client.getChannels().includes(channel) && null;
+				return client.getChannels().includes(channel) && null;
 			})
 			.catch((error) => {
 				return new Promise((resolve) => {
 					setTimeout(() => {
-						if (this._client.getChannels().includes(channel)) {
+						if (client.getChannels().includes(channel)) {
 							return resolve(null);
 						}
 
@@ -170,7 +171,7 @@ export default class TmiClient extends EventEmitter {
 
 		console.log(this._clientChannels, channel);
 
-		// search channel in custom client
+		// search channel in client
 		for (const username of Object.keys(this.clients)) {
 			const client = this.clients[username];
 			if (client.getChannels().includes(channel)) {
@@ -275,12 +276,12 @@ export default class TmiClient extends EventEmitter {
 
 	async createClient(data) {
 		if (!tmiClusterConfig.multiClients.enabled) {
-			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Custom clients are disabled.`);
+			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Multi clients are disabled.`);
 			return;
 		}
 
 		if (typeof this.callbacks.createClient !== 'function') {
-			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] createClient is not a function, custom clients are disabled.`);
+			console.warn(`[tmi.js-cluster] [${process.env.PROCESS_ID}] createClient is not a function, multi clients are disabled.`);
 			return;
 		}
 
@@ -295,7 +296,7 @@ export default class TmiClient extends EventEmitter {
 
 			for (const channel of data.channels) {
 				if (clientIsConnected && !currentChannels.includes(channel)) {
-					client.join(channel);
+					this.joinChannel(channel, client);
 				}
 
 				if (!this._clientChannels[clientUsername].includes(channel)) {
@@ -328,7 +329,7 @@ export default class TmiClient extends EventEmitter {
 
 				newClient.on('connected', () => {
 					for (const channel of this._clientChannels[clientUsername]) {
-						newClient.join(channel);
+						this.joinChannel(channel, newClient);
 					}
 				});
 
