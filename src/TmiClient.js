@@ -382,7 +382,7 @@ export default class TmiClient extends EventEmitter {
 		this.emit('tmi.client.created', null, null, this._client);
 	}
 
-	getClient(channel) {
+	getClient(channel, defaultValue) {
 		channel = channelSanitize(channel);
 		for (const client of [this._client, ...Object.values(this.clients)]) {
 			if (client.getChannels().includes(channel)) {
@@ -390,7 +390,7 @@ export default class TmiClient extends EventEmitter {
 			}
 		}
 
-		return this._client;
+		return typeof defaultValue === 'undefined' ? this._client : defaultValue;
 	}
 
 	getChannels() {
