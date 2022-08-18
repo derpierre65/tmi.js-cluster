@@ -48,6 +48,7 @@ export default class Supervisor extends EventEmitter {
 				stale: 15,
 				periodicTimer: 2_000,
 				timeout: 60_000,
+				terminateUncaughtException: true,
 			},
 			multiClients: {
 				enabled: true,

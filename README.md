@@ -61,6 +61,7 @@ Each and every option listed below is optional.
 - `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
 - `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database and queued channels will be joined or parted. (Default: `2_000`)
 - `timeout`: Number - If the process marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
+- `terminateUncaughtException`: Boolean - If `true` the process will be terminated on uncaughtException. (Default: `true`)
 
 `multiClients`:
 - `enabled`: Boolean - If `true`, then the multi client feature is enabled. You should set it to `false` if you don't use that to save performance. (Default: `true`)
