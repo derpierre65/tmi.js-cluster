@@ -335,12 +335,13 @@ export default class TmiClient extends EventEmitter {
 					}
 				});
 
-				newClient.on('disconnected', () => {
+				newClient.on('disconnected', (...args) => {
 					if (newClient.readyState() !== 'CLOSED') {
 						newClient.disconnect();
 					}
 
 					if (this.clients[clientUsername]) {
+						process.env.DEBUG_ENABLED && console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Custom client disconnected.`, args);
 						this.deleteClient(clientUsername);
 					}
 				});

@@ -386,6 +386,12 @@ export default class RedisChannelDistributor {
 					});
 				}
 			}
+			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
+				clientQueue.push(command);
+			}
+			else {
+				console.error('[tmi.js-cluster] Unknown queued command:', command);
+			}
 		}
 
 		return { channelQueue, clientQueue };
