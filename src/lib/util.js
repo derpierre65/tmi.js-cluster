@@ -22,10 +22,17 @@ function getRedisKey(name) {
 	return (tmiClusterConfig.redis.prefix || '') + name;
 }
 
+async function wait(seconds) {
+	return new Promise((resolve) => {
+		setTimeout(resolve, seconds);
+	});
+}
+
 export {
 	channelSanitize,
 	getQueueName,
 	getRedisKey,
 	unique,
 	channelUsername,
+	wait,
 };

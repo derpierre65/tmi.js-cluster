@@ -1,5 +1,5 @@
 import * as Enum from '../lib/enums';
-import {channelSanitize, channelUsername, getQueueName, getRedisKey, unique} from '../lib/util';
+import {channelSanitize, channelUsername, getQueueName, getRedisKey, unique, wait} from '../lib/util';
 import {SupervisorInstance} from '../Supervisor';
 import {TmiClientInstance} from '../TmiClient';
 import RedisCommandQueue from './RedisCommandQueue';
@@ -436,11 +436,9 @@ export default class RedisChannelDistributor {
 
 				// if more channels are available then wait for "every" seconds otherwise we finish the queue and let expire the redis lock.
 				if (queue.length && executed) {
-					await new Promise((resolve) => {
-						// we need to add some time, it's not important if you have a verified bot because the limit would be high enough to join/part enough channels.
-						// the command execution can take some time and could be result with a "no response from twitch" for unverified users
-						setTimeout(resolve, every * 1_000 + (Date.now() - start) * 2);
-					});
+					// we need to add some time, it's not important if you have a verified bot because the limit would be high enough to join/part enough channels.
+					// the command execution can take some time and could be result with a "no response from twitch" for unverified users
+					await wait(every * 1_000 + (Date.now() - start) * 2);
 				}
 			} while (queue.length);
 		}

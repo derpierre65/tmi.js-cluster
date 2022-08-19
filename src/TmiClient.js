@@ -1,6 +1,6 @@
 import EventEmitter from 'node:events';
 import * as Enum from './lib/enums';
-import {channelSanitize, getQueueName, unique} from './lib/util';
+import {channelSanitize, getQueueName, unique, wait} from './lib/util';
 import SignalListener from './SignalListener';
 
 /**
@@ -160,6 +160,7 @@ export default class TmiClient extends EventEmitter {
 			return;
 		}
 
+		// if multi clients are disabled we use directly the main client
 		if (!tmiClusterConfig.multiClients.enabled) {
 			return this._partChannel(this._client, channel);
 		}
@@ -168,8 +169,6 @@ export default class TmiClient extends EventEmitter {
 		if (this._client.getChannels().includes(channel)) {
 			return this._partChannel(this._client, channel);
 		}
-
-		console.log(this._clientChannels, channel);
 
 		// search channel in client
 		for (const username of Object.keys(this.clients)) {
@@ -217,6 +216,9 @@ export default class TmiClient extends EventEmitter {
 		}
 
 		this._terminating = true;
+
+		// we wait for 1.5s to save current channels.
+		await wait(1_500);
 
 		// we are saving the current channels and set state to TERMINATED
 		// it can happen that the process will terminate after the tmi client joined a channel but before the database channel update
