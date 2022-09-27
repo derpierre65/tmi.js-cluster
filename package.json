@@ -22,7 +22,7 @@
     "url": "https://github.com/derpierre65/tmi.js-cluster/issues/"
   },
   "author": "derpierre65",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "deepmerge": "^4.2.2",
     "uuid": "^8.3.2"
