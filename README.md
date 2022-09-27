@@ -75,7 +75,7 @@ Each and every option listed below is optional.
 	- `min`: Number - The minimum of processes. (Default: `2`)
 	- `max`: Number - The maximum of processes. (Default: `20`)
 - `thresholds`:
-	- `channels`: Number - The maximum target of channels per process. (Default: `1_000`)
+	- `channels`: Number - The maximum target of channels per process. (Default: `2_000`)
 	- `scaleUp`: Number - If a supervisor reach more than `scaleUp`% channels then a new process will be created. (Default: `75`)
 	- `scaleDown`: Number - If a supervisor reach less than `scaleUp`% channels then one process will be terminated. (Default: `50`)
 
@@ -108,7 +108,7 @@ Each and every option listed below is optional.
 		"timeout": 60000
 	},
 	"multiClients": {
-		"enabled": true
+		"enabled": false
 	},
 	"metrics": {
 		"enabled": true,
@@ -120,7 +120,7 @@ Each and every option listed below is optional.
 			"max": 20
 		},
 		"thresholds": {
-			"channels": 1000,
+			"channels": 2000,
 			"scaleUp": 75,
 			"scaleDown": 50
 		}

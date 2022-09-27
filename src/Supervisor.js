@@ -51,7 +51,7 @@ export default class Supervisor extends EventEmitter {
 				terminateUncaughtException: true,
 			},
 			multiClients: {
-				enabled: true,
+				enabled: false,
 			},
 			metrics: {
 				enabled: true,
@@ -63,7 +63,7 @@ export default class Supervisor extends EventEmitter {
 					max: 20,
 				},
 				thresholds: {
-					channels: 1_000,
+					channels: 2_000,
 					scaleUp: 75,
 					scaleDown: 50,
 				},
