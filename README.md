@@ -18,7 +18,8 @@ The cluster store its data into a database and use a redis connection for the IR
 - Supervisor can deployed on multiple servers.
 - Use the up-to-date [tmi.js](https://github.com/tmijs/tmi.js) client.
 - Monitoring dashboard.
-- Optimized for unverified and verified bots.
+- Optimized for **unverified** and verified bots.
+- Multiple tmi clients.
 
 ## Events
 
@@ -30,11 +31,17 @@ The cluster store its data into a database and use a redis connection for the IR
 | Supervisor            | supervisor.ping      | Health ping for the supervisor.                                                      | supervisor id                     |
 | Supervisor            | process.create       | Process created.                                                                     | process id                        |
 | Supervisor            | process.remove       | Process destroyed.                                                                   | process id                        |
-| Supervisor, TmiClient | tmi.join             | Will emitted when the client join a channel.                                         | channel                           |
-| Supervisor, TmiClient | tmi.part             | Will emitted when the client part a channel.                                         | channel                           |
-| Supervisor, TmiClient | tmi.join_error       | Will emitted if the client can't join a channel.                                     | channel, error                    |
-| Supervisor, TmiClient | tmi.part_error       | Will emitted if the client can't part a channel.                                     | channel, error                    |
+| Supervisor, TmiClient | tmi.join             | Will emitted when the client join a channel. `error` is `null` if no error occurred. | error, channel                    |
+| Supervisor, TmiClient | tmi.part             | Will emitted when the client part a channel. `error` is `null` if no error occurred. | error, channel                    |
 | TmiClient             | tmi.channels         | Will emitted every `process.periodicTimer` ms if the tmi.js client is in open state. | array of channels (unique values) |
+| TmiClient             | tmi.client.created   | Will emitted when a new client will be created (includes the main client).           | error, username, client           |
+| TmiClient             | tmi.client.deleted   | Will emitted when a client will be deleted.                                          | username, client                  |
+
+### tmi.client.created
+
+- `error` is null if no error occurred.
+- `username` is null for the main client. **It's the target channel name not the bot name.**
+- `client` contains the tmi.js (or any else) client.
 
 ## Configuration
 
@@ -48,31 +55,39 @@ Each and every option listed below is optional.
 `supervisor`:
 - `keyLength`: Number - Set the key length for the supervisor id. The supervisor id will be generated from hostname and a random generated string. (Default: `8`)
 - `stale`: Number - The supervisor will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
-- `updateInterval`: TODO
+- `updateInterval`: TODO (Default: `3_000`)
+
+`process`:
+- `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
+- `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database and queued channels will be joined or parted. (Default: `2_000`)
+- `timeout`: Number - If the process marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
+- `terminateUncaughtException`: Boolean - If `true` the process will be terminated on uncaughtException. (Default: `true`)
+
+`multiClients`:
+- `enabled`: Boolean - If `true`, then the multi client feature is enabled. You should set it to `false` if you don't use that to save performance. (Default: `true`)
 
 `metrics`:
 - `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`)
 - `memory`: Boolean - If `true`, then the current memory (MB) will be saved into the metrics object. (Default: `true`)
 
-`process`:
-- `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
-- `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database and queued channels will be joined or parted. (Default: `2_000`)
-- `timeout`: Number - If the process was marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
-
 `autoScale`:
 - `processes`:
-	- `min`: Number - The minimum of prcoesses. (Default: `2`)
+	- `min`: Number - The minimum of processes. (Default: `2`)
 	- `max`: Number - The maximum of processes. (Default: `20`)
 - `thresholds`:
-	- `channels`: Number - The maximum target of channels per process. (Default: `1000`)
+	- `channels`: Number - The maximum target of channels per process. (Default: `2_000`)
 	- `scaleUp`: Number - If a supervisor reach more than `scaleUp`% channels then a new process will be created. (Default: `75`)
 	- `scaleDown`: Number - If a supervisor reach less than `scaleUp`% channels then one process will be terminated. (Default: `50`)
 
 `throttle`:
 - `join`:
-	- `allow`: Number - The maximum allowed `take` value. (Default: `2000`)
+	- `allow`: Number - The maximum allowed `take` value. (Default: `2_000`)
 	- `every`: Number - The time to wait before the next channels are joined. (Default: `10`)
 	- `take`: Number - The number of channels there should be joined every `every` seconds. Twitch allows 20/10s for normal users and 2000/10s for verified bots. (Default: `20`)
+- `clients`:
+	- `allow`: Number - The maximum allowed `take` value. (Default: `100`)
+	- `every`: Number - The time to wait before the next clients should be created. (Default: `10`)
+	- `take`: Number - The number of clients there should be created every `every` seconds. (Default: `50`)
 
 ### Default Object
 
@@ -84,12 +99,16 @@ Each and every option listed below is optional.
 	},
 	"supervisor": {
 		"keyLength": 8,
-		"stale": 15
+		"stale": 15,
+		"updateInterval": 3000
 	},
 	"process": {
 		"stale": 15,
 		"periodicTimer": 2000,
 		"timeout": 60000
+	},
+	"multiClients": {
+		"enabled": false
 	},
 	"metrics": {
 		"enabled": true,
@@ -111,6 +130,11 @@ Each and every option listed below is optional.
 			"allow": 2000,
 			"every": 10,
 			"take": 20
+		},
+		"clients": {
+			"allow": 100,
+			"every": 10,
+			"take": 50
 		}
 	}
 }

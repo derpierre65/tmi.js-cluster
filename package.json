@@ -1,13 +1,12 @@
 {
   "name": "tmi.js-cluster",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "tmi.js-cluster is a scalable cluster for tmi.js. This cluster can have multiple supervisors that can be deployed on multiple servers.",
   "main": "dist/index.js",
   "scripts": {
     "build": "babel src --out-dir dist --copy-files --no-copy-ignored",
-    "vue:build": "mix build -p",
-    "vue:hot": "mix watch --hot",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "watch": "nodemon --exec npm run build --watch src"
   },
   "keywords": [
     "tmi.js",
@@ -23,7 +22,7 @@
     "url": "https://github.com/derpierre65/tmi.js-cluster/issues/"
   },
   "author": "derpierre65",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "deepmerge": "^4.2.2",
     "uuid": "^8.3.2"

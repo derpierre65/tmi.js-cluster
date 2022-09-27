@@ -21,14 +21,14 @@ export default class Supervisor extends EventEmitter {
 	constructor(options, config) {
 		super();
 
-		console.log(fs.readFileSync(__dirname + '/motd.txt').toString());
-		console.log(`You are running tmi.js-cluster v${data.version}.`);
+		console.info(fs.readFileSync(__dirname + '/motd.txt').toString());
+		console.info(`You are running tmi.js-cluster v${data.version}.`);
 
 		if (data.version.includes('alpha')) {
 			console.warn('Warning: This is an alpha build. It\'s not recommended running it in production.');
 		}
 
-		console.log('');
+		console.info('');
 
 		process.env.TMI_CLUSTER_ROLE = 'supervisor';
 
@@ -48,6 +48,10 @@ export default class Supervisor extends EventEmitter {
 				stale: 15,
 				periodicTimer: 2_000,
 				timeout: 60_000,
+				terminateUncaughtException: true,
+			},
+			multiClients: {
+				enabled: false,
 			},
 			metrics: {
 				enabled: true,
@@ -59,7 +63,7 @@ export default class Supervisor extends EventEmitter {
 					max: 20,
 				},
 				thresholds: {
-					channels: 1_000,
+					channels: 2_000,
 					scaleUp: 75,
 					scaleDown: 50,
 				},
@@ -69,6 +73,11 @@ export default class Supervisor extends EventEmitter {
 					allow: 2_000,
 					every: 10,
 					take: 20,
+				},
+				clients: {
+					allow: 100,
+					every: 10,
+					take: 50,
 				},
 			},
 		};
@@ -96,9 +105,9 @@ export default class Supervisor extends EventEmitter {
 		this._working = false;
 
 		let every = config.throttle.join.every;
-		if ((every - 1) * 1_000 < tmiClusterConfig.process.periodicTimer && !options.redis.sub ) {
+		if ((every - 1) * 1_000 < tmiClusterConfig.process.periodicTimer && !options.redis.sub) {
 			every *= 1_000;
-			console.warn( `For unverified bots its not recommended that throttle.join.every (${every}) is equal or lower then process.periodicTimer (${tmiClusterConfig.process.periodicTimer}) in non pub/sub mode.`);
+			console.warn(`For unverified bots its not recommended that throttle.join.every (${every}) is equal or lower then process.periodicTimer (${tmiClusterConfig.process.periodicTimer}) in non pub/sub mode.`);
 		}
 	}
 
@@ -174,14 +183,14 @@ export default class Supervisor extends EventEmitter {
 		this.emit('supervisor.terminate', this.id);
 		clearInterval(this._interval);
 
-		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] Terminating ${this.id}...`);
+		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${this.id}] Terminating...`);
 
 		return this
 			.getPromise('terminate')
 			.then(() => this._processPool.terminate())
 			.then(() => this._channelDistributor.terminate())
 			.then(() => {
-				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor] ${this.id} terminated.`);
+				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${this.id}] Terminated.`);
 				process.exit(0);
 			});
 	}

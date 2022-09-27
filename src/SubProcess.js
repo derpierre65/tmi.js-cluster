@@ -1,6 +1,6 @@
 import childProcess from 'child_process';
-import ProcessPool, {ProcessPoolInstance} from './ProcessPool';
-import Supervisor, {SupervisorInstance} from './Supervisor';
+import {ProcessPoolInstance} from './ProcessPool';
+import {SupervisorInstance} from './Supervisor';
 
 export default class SubProcess {
 	constructor(id) {
@@ -26,8 +26,8 @@ export default class SubProcess {
 				return;
 			}
 
-			if (data.event === 'tmi.join_error') {
-				SupervisorInstance.emit('tmi.join_error', data.channel, data.error);
+			if (data.event === 'tmi.join') {
+				SupervisorInstance.emit('tmi.join', data.error, data.channel);
 			}
 			else if (data.event === 'channels') {
 				this._channels = data.channels;
@@ -49,8 +49,8 @@ export default class SubProcess {
 
 		return new Promise((resolve, reject) => {
 			SupervisorInstance.database.query('INSERT INTO tmi_cluster_supervisor_processes (??) VALUES (?);', [
-				['id', 'supervisor_id', 'state', 'channels', 'metrics', 'last_ping_at', 'created_at', 'updated_at'],
-				[this.id, SupervisorInstance.id, 'STARTING', '[]', '{}', new Date(), new Date(), new Date()],
+				['id', 'supervisor_id', 'state', 'channels', 'clients', 'metrics', 'last_ping_at', 'created_at', 'updated_at'],
+				[this.id, SupervisorInstance.id, 'STARTING', '[]', '[]', '{}', new Date(), new Date(), new Date()],
 			], (error) => {
 				if (error) {
 					console.error('[tmi.js-cluster] Fail to insert the process into database.', error);

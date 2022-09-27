@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.2] - 2022-09-27
+### Added
+- Support for multi clients.
+- Option `process.terminateUncaughtException` to disable terminate on `uncaughtException`.
+
+### Changed
+- **Breaking Change**: Flipped the `tmi.join` and `tmi.part` arguments (first is the error (`null` if no error occurred), second the channel name).
+
+### Fixed
+- The order of queue commands was wrong if a client will be terminated and have an active queue in progress.
+
+### Removed
+- **Breaking Change**: Removed `joinNow` and `partNow` in ChannelDistributor. Can be replaced with the new second argument in `join` and `part`.
+- Dropped `tmi.join_error` and `tmi.part_error`.
+
 ## [1.0.0-alpha.1] - 2022-07-29
 ### Added
 - Support redis pub/sub for faster joining/parting channels.

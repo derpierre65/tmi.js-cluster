@@ -19,7 +19,9 @@ export default class SignalListener extends EventEmitter {
 			console.error(error);
 			console.error('------------');
 
-			this._queueSignal('terminate');
+			if (tmiClusterConfig.process.terminateUncaughtException) {
+				this._queueSignal('terminate');
+			}
 		});
 		signalProcess.on('message', (message) => {
 			if (message === 'terminate') {
