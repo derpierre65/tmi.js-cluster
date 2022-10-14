@@ -1,6 +1,6 @@
 {
   "name": "tmi.js-cluster",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "tmi.js-cluster is a scalable cluster for tmi.js. This cluster can have multiple supervisors that can be deployed on multiple servers.",
   "main": "dist/index.js",
   "scripts": {

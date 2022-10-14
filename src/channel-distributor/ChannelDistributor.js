@@ -13,21 +13,28 @@ class ChannelDistributor {
 			clients: null,
 		};
 
-		const RateLimiterClass = this.getRateLimiterClass();
-		if (RateLimiterClass) {
-			const limit = tmiClusterConfig.throttle.join.allow;
-			let resetEvery = tmiClusterConfig.throttle.join.every / limit;
-			let resetCount = 1;
-
-			// verified bots has a high limit, reset 1 channel and execute the queue every 5ms is not so good
-			// we reset the value every 500ms
-			if (resetEvery <= 500) {
-				resetCount = 500 / resetEvery;
-				resetEvery = 500;
-			}
-
-			this._rateLimiter.tmi = new RateLimiterClass('tmi', limit, resetEvery, resetCount, tmiClusterConfig.throttle.join.every);
+		let RateLimiterClass = this.getRateLimiterClass();
+		if (!RateLimiterClass) {
+			return;
 		}
+
+		if (!(RateLimiterClass instanceof Promise)) {
+			RateLimiterClass = Promise.resolve(RateLimiterClass);
+		}
+
+		RateLimiterClass
+			.then((RateLimiterClass) => {
+				this._rateLimiter.tmi = new RateLimiterClass(
+					'tmi',
+					tmiClusterConfig.throttle.join.allow,
+					tmiClusterConfig.throttle.join.every,
+				);
+				this._rateLimiter.clients = new RateLimiterClass(
+					'clients',
+					tmiClusterConfig.throttle.clients.allow,
+					tmiClusterConfig.throttle.clients.every,
+				);
+			});
 	}
 
 	getRateLimiterClass() {
@@ -341,10 +348,9 @@ class ChannelDistributor {
 		process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Executing queue ${name} (size: ${queue.length})...`);
 
 		try {
-			const processes = await this._getProcesses();
-
+			let processes;
 			// if no processes found or the executor has been terminated then re-queue all commands
-			if (processes.length === 0 || this._terminated) {
+			if (this._terminated || (processes = await this._getProcesses()).length === 0) {
 				await this._unshiftQueue(queue);
 
 				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Queue ${name} canceled and all commands are pushed back into the queue.`);
@@ -377,6 +383,7 @@ class ChannelDistributor {
 
 	async _resolveQueueCommand(processes, commands) {
 		for (const command of commands) {
+			// join the channel
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
 				const channel = command.options.channel;
 				const channelProcess = this._isJoined(processes, channel, true);
@@ -386,6 +393,8 @@ class ChannelDistributor {
 					continue;
 				}
 
+				await this._rateLimiter.tmi.decrement(1);
+
 				processes.sort((processA, processB) => processA.channelSum > processB.channelSum ? 1 : -1);
 
 				const targetProcess = processes[0];
@@ -394,12 +403,32 @@ class ChannelDistributor {
 					targetProcess.channels.push(channel);
 				}
 			}
+			// part the channel
 			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
 				const channel = command.options.channel;
 				const channelProcess = this._isJoined(processes, channel);
 
-				await this._resolveChannelPart(channelProcess, command);
+				// ignore channel, not found in cluster.
+				if (!channelProcess) {
+					continue;
+				}
+
+				// ignore again, not found
+				let index = channelProcess.channels.indexOf(command.options.channel);
+				if (index === -1) {
+					return;
+				}
+
+				await this._rateLimiter.tmi.decrement(1);
+
+				if (await this._requestCommand(channelProcess.id, command.command, command.options)) {
+					channelProcess.channelSum--;
+					channelProcess.channels.splice(index, 1);
+
+					return true;
+				}
 			}
+			// Create a client with the given user and join the channel
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
 				let targetProcess = this._hasClient(processes, command.options.username);
 
@@ -416,27 +445,6 @@ class ChannelDistributor {
 				await this._requestCommand(targetProcess.id, command.command, command.options);
 			}
 		}
-	}
-
-	async _resolveChannelPart(channelProcess, command) {
-		// this channel will be ignored, because it's not joined.
-		if (!channelProcess) {
-			return false;
-		}
-
-		let index = channelProcess.channels.indexOf(command.options.channel);
-		if (index === -1) {
-			return false;
-		}
-
-		if (await this._requestCommand(channelProcess.id, command.command, command.options)) {
-			channelProcess.channelSum--;
-			channelProcess.channels.splice(index, 1);
-
-			return true;
-		}
-
-		return false;
 	}
 
 	_hasClient(processes, channel) {

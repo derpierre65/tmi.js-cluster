@@ -124,20 +124,8 @@ class TmiClient extends EventEmitter {
 
 		return client
 			.join(channel)
-			.then(() => {
-				return client.getChannels().includes(channel) && null;
-			})
-			.catch((error) => {
-				return new Promise((resolve) => {
-					setTimeout(() => {
-						if (client.getChannels().includes(channel)) {
-							return resolve(null);
-						}
-
-						resolve(error);
-					}, 1_000);
-				});
-			})
+			.then(() => client.getChannels().includes(channel) && null)
+			.catch((error) => error)
 			.then((error) => {
 				this.emit('tmi.join', error, channel);
 				process.send({
@@ -189,12 +177,8 @@ class TmiClient extends EventEmitter {
 	_partChannel(client, channel) {
 		return client
 			.part(channel)
-			.then(() => {
-				return null;
-			})
-			.catch((error) => {
-				return error;
-			})
+			.then(() => null)
+			.catch((error) => error)
 			.then((error) => {
 				this.emit('tmi.part', error, channel);
 				process.send({

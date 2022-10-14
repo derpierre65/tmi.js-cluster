@@ -81,13 +81,11 @@ Each and every option listed below is optional.
 
 `throttle`:
 - `join`:
-	- `allow`: Number - The maximum allowed `take` value. (Default: `2_000`)
-	- `every`: Number - The time to wait before the next channels are joined. (Default: `10`)
-	- `take`: Number - The number of channels there should be joined every `every` seconds. Twitch allows 20/10s for normal users and 2000/10s for verified bots. (Default: `20`)
+	- `allow`: Number - The maximum allowed join/part commands in `every`ms time window. (Default: `20`)
+	- `every`: Number - After this time the rate limit time window will be reset. (Default: `10_000`)
 - `clients`:
-	- `allow`: Number - The maximum allowed `take` value. (Default: `100`)
-	- `every`: Number - The time to wait before the next clients should be created. (Default: `10`)
-	- `take`: Number - The number of clients there should be created every `every` seconds. (Default: `50`)
+	- `allow`: Number - The maximum of clients that can be created in the `every`ms time window. (Default: `50`)
+	- `every`: Number - After this time the rate limit time window will be reset. (Default: `10_000`)
 
 ### Default Object
 

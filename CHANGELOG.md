@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.3]
+### Added
+- **Breaking Change**: Split ChannelDistributor into ChannelDistributor (base class), RedisChannelDistributor and RedisPubSubChannelDistributor.
+
+### Changed
+- **Breaking Change**: `throttle.join.every` and `throttle.clients.every` are now milliseconds instead of seconds.
+- **Breaking Change**: Renamed queue redis key from `join-handler` to `command-queue`.
+- Changed the way to rate limit the channel joins/parts. First join/part will start a `every`ms time window, within this window `allow` channels can be joined/parted.
+
+### Removed
+- Removed setting `throttle.join.take` and `throttle.clients.take`.
+
 ## [1.0.0-alpha.2] - 2022-09-27
 ### Added
 - Support for multi clients.
