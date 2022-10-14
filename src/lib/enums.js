@@ -1,5 +1,5 @@
 const CommandQueue = {
-	JOIN_HANDLER: 'join-handler',
+	COMMAND_QUEUE: 'command-queue',
 	INPUT_QUEUE: 'input',
 	COMMAND_JOIN: 'join',
 	COMMAND_PART: 'part',

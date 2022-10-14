@@ -1,6 +1,7 @@
 import EventEmitter from 'node:events';
+import {CommandQueueInstance} from './channel-distributor/CommandQueue';
 import * as Enum from './lib/enums';
-import {channelSanitize, getQueueName, unique, wait} from './lib/util';
+import {channelSanitize, unique, wait} from './lib/util';
 import SignalListener from './SignalListener';
 
 /**
@@ -8,9 +9,7 @@ import SignalListener from './SignalListener';
  */
 let TmiClientInstance = null;
 
-export {TmiClientInstance};
-
-export default class TmiClient extends EventEmitter {
+class TmiClient extends EventEmitter {
 	constructor(options, callbacks) {
 		super();
 
@@ -41,7 +40,6 @@ export default class TmiClient extends EventEmitter {
 		this._terminating = false;
 		this._disconnectedSince = 0;
 		this._channelDistributor = new options.channelDistributor(options);
-		this._commandQueue = this._channelDistributor.commandQueue;
 		this._signalListener = new SignalListener(process, this);
 
 		this._interval = setInterval(async () => {
@@ -58,10 +56,7 @@ export default class TmiClient extends EventEmitter {
 				return;
 			}
 
-			// use process pending commands if no redis subscriber defined.
-			if (!options.redis.sub) {
-				await this._processPendingCommands();
-			}
+			await this._processPendingCommands();
 
 			// send my channels to the supervisor
 			process.send({
@@ -125,7 +120,7 @@ export default class TmiClient extends EventEmitter {
 			return;
 		}
 
-		client = client || this._client;
+		client ||= this._client;
 
 		return client
 			.join(channel)
@@ -251,24 +246,25 @@ export default class TmiClient extends EventEmitter {
 	}
 
 	async _processPendingCommands() {
-		const commands = await this._commandQueue.pending(getQueueName(process.env.PROCESS_ID, Enum.CommandQueue.INPUT_QUEUE));
-		commands.push(...await this._commandQueue.pending('*'));
+		if (!CommandQueueInstance || CommandQueueInstance.enabled) {
+			return;
+		}
+
+		const commands = await CommandQueueInstance.getPendingCommands();
 
 		for (const command of commands) {
 			this._metrics.queueCommands++;
 
-			// safety check, ignore queue command without options or where channels key is not an array
-			if (!command.options || !Array.isArray(command.options.channels)) {
+			// safety check, ignore queue command without options or where channels key is not a string
+			if (!command.options || typeof command.options.channel !== 'string') {
 				continue;
 			}
 
-			// we can use channels[0], we know that channels has only ONE channel otherwise the developer pushed the command queue and this would be stupid
-			const channel = command.options.channels[0];
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
-				this.joinChannel(channel);
+				this.joinChannel(command.options.channel);
 			}
 			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
-				this.partChannel(channel);
+				this.partChannel(command.options.channel);
 			}
 			else if (command.command === Enum.CommandQueue.CREATE_CLIENT) {
 				this.createClient(command.options);
@@ -293,8 +289,6 @@ export default class TmiClient extends EventEmitter {
 			const client = this.clients[clientUsername];
 			const clientIsConnected = client && client.readyState() === 'OPEN';
 			const currentChannels = client.getChannels();
-
-			console.log('check', data.channels);
 
 			for (const channel of data.channels) {
 				if (clientIsConnected && !currentChannels.includes(channel)) {
@@ -396,15 +390,6 @@ export default class TmiClient extends EventEmitter {
 		return typeof defaultValue === 'undefined' ? this._client : defaultValue;
 	}
 
-	getChannels() {
-		const channels = [];
-		for (const client of [this._client, ...Object.values(this.clients)]) {
-			channels.push(...client.getChannels());
-		}
-
-		return unique(channels);
-	}
-
 	deleteClient(clientName) {
 		if (!tmiClusterConfig.multiClients.enabled) {
 			console.error(`[tmi.js-cluster] [${process.env.PROCESS_ID}] Custom clients are disabled.`);
@@ -429,6 +414,15 @@ export default class TmiClient extends EventEmitter {
 		}
 	}
 
+	getChannels() {
+		const channels = [];
+		for (const client of [this._client, ...Object.values(this.clients)]) {
+			channels.push(...client.getChannels());
+		}
+
+		return unique(channels);
+	}
+
 	_addMetricEvents(client) {
 		if (!tmiClusterConfig.metrics.enabled) {
 			return;
@@ -442,3 +436,8 @@ export default class TmiClient extends EventEmitter {
 		});
 	}
 }
+
+export {
+	TmiClientInstance,
+	TmiClient as default,
+};

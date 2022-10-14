@@ -8,27 +8,16 @@ import * as str from './lib/string';
 import ProcessPool from './ProcessPool';
 import SignalListener from './SignalListener';
 
-const data = require('../package.json');
-
 /**
  * @type Supervisor
  */
 let SupervisorInstance = null;
 
-export {SupervisorInstance};
-
-export default class Supervisor extends EventEmitter {
+class Supervisor extends EventEmitter {
 	constructor(options, config) {
 		super();
 
-		console.info(fs.readFileSync(__dirname + '/motd.txt').toString());
-		console.info(`You are running tmi.js-cluster v${data.version}.`);
-
-		if (data.version.includes('alpha')) {
-			console.warn('Warning: This is an alpha build. It\'s not recommended running it in production.');
-		}
-
-		console.info('');
+		this.sendMotd();
 
 		process.env.TMI_CLUSTER_ROLE = 'supervisor';
 
@@ -70,14 +59,13 @@ export default class Supervisor extends EventEmitter {
 			},
 			throttle: {
 				join: {
-					allow: 2_000,
-					every: 10,
-					take: 20,
+					// bot allow to join 20 channels every 10 seconds
+					allow: 20,
+					every: 10_000,
 				},
 				clients: {
-					allow: 100,
-					every: 10,
-					take: 50,
+					allow: 50,
+					every: 10_000,
 				},
 			},
 		};
@@ -111,6 +99,22 @@ export default class Supervisor extends EventEmitter {
 		}
 	}
 
+	sendMotd() {
+		const data = require('../package.json');
+
+		console.info(fs.readFileSync(__dirname + '/motd.txt').toString());
+		console.info(`You are running tmi.js-cluster v${data.version}.`);
+
+		if (data.version.includes('alpha')) {
+			console.warn('Warning: This is an alpha build. It\'s not recommended running it in production.');
+		}
+
+		console.info('');
+	}
+
+	/**
+	 * @param validate Promise
+	 */
 	spawn(validate) {
 		this.id = this.generateUniqueSupervisorId();
 
@@ -211,3 +215,8 @@ export default class Supervisor extends EventEmitter {
 		return path.join(process.cwd(), this._config.file);
 	}
 }
+
+export {
+	SupervisorInstance,
+	Supervisor as default,
+};

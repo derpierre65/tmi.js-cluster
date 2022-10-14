@@ -7,9 +7,7 @@ import {SupervisorInstance} from './Supervisor';
  */
 let ProcessPoolInstance = null;
 
-export {ProcessPoolInstance};
-
-export default class ProcessPool {
+class ProcessPool {
 	/**
 	 * @type ProcessPool
 	 */
@@ -71,7 +69,7 @@ export default class ProcessPool {
 	}
 
 	createProcess() {
-		const subProcess = new SubProcess(uuid(), this);
+		const subProcess = new SubProcess(uuid());
 
 		this.processes.push(subProcess);
 
@@ -150,3 +148,8 @@ export default class ProcessPool {
 		});
 	}
 }
+
+export {
+	ProcessPoolInstance,
+	ProcessPool as default,
+};
