@@ -293,7 +293,7 @@ class ChannelDistributor {
 			// join and part events
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN || command.command === Enum.CommandQueue.COMMAND_PART) {
 				const channel = channelSanitize(command.options.channel || '');
-				if (!channel) {
+				if (channel.length <= 1) {
 					continue;
 				}
 
@@ -389,7 +389,11 @@ class ChannelDistributor {
 		for (const command of commands) {
 			// join the channel
 			if (command.command === Enum.CommandQueue.COMMAND_JOIN) {
-				const channel = command.options.channel;
+				const channel = channelSanitize(command.options.channel);
+				if (channel.length <= 1) {
+					continue;
+				}
+
 				const channelProcess = this._isJoined(processes, channel, true);
 
 				// this channel will be ignored, because it's already joined.
@@ -409,7 +413,11 @@ class ChannelDistributor {
 			}
 			// part the channel
 			else if (command.command === Enum.CommandQueue.COMMAND_PART) {
-				const channel = command.options.channel;
+				const channel = channelSanitize(command.options.channel);
+				if (channel.length <= 1) {
+					continue;
+				}
+
 				const channelProcess = this._isJoined(processes, channel);
 
 				// ignore channel, not found in cluster.
@@ -470,7 +478,7 @@ class ChannelDistributor {
 			channels = [channels];
 		}
 
-		channels = channels.filter((channel) => channel).map(channelSanitize);
+		channels = channels.map(channelSanitize).filter((channel) => channel.length > 1);
 
 		if (channels.length === 0) {
 			return Promise.resolve();
