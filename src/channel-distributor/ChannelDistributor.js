@@ -46,6 +46,7 @@ class ChannelDistributor {
 	}
 
 	async unlockQueue() {
+		this._executingQueue = false;
 	}
 
 	async blockQueue(milliseconds) {
@@ -154,8 +155,7 @@ class ChannelDistributor {
 
 		const commands = await CommandQueueInstance.pending(Enum.CommandQueue.COMMAND_QUEUE);
 		if (commands.length === 0) {
-			this._executingQueue = false;
-			return;
+			return this.unlockQueue();
 		}
 
 		const { channelQueue, clientQueue } = this._getQueues(commands);
@@ -230,8 +230,8 @@ class ChannelDistributor {
 				this._executeQueue('client', clientQueue),
 			])
 			.then(() => {
-				this._executingQueue = false;
 				this.unlockQueue();
+
 				process.env.DEBUG_ENABLED && console.debug(`[tmi.js-cluster] [supervisor:${SupervisorInstance.id}] Channel and client queue finished...`);
 			});
 	}
@@ -361,11 +361,15 @@ class ChannelDistributor {
 			// block the queue for every + 1 seconds
 			await this.blockQueue(5_000);
 
-			// execute queue
-			const take = await this._rateLimiter[name].getRemaining();
-			const commands = queue.splice(0, take);
+			// execute queue until the rate limit reach 0
+			// we use a while because some join or part commands will not be executed, e.g. if the channel is already be joined
+			let take = 0;
+			while (take = await this._rateLimiter[name].getRemaining() > 0 && queue.length) {
+				const commands = queue.splice(0, take);
 
-			await this._resolveQueueCommand(processes, commands);
+				await this._resolveQueueCommand(processes, commands);
+			}
+
 			await this._unshiftQueue(queue);
 		}
 		catch (error) {
@@ -416,7 +420,7 @@ class ChannelDistributor {
 				// ignore again, not found
 				let index = channelProcess.channels.indexOf(command.options.channel);
 				if (index === -1) {
-					return;
+					continue;
 				}
 
 				await this._rateLimiter.tmi.decrement(1);
@@ -424,8 +428,6 @@ class ChannelDistributor {
 				if (await this._requestCommand(channelProcess.id, command.command, command.options)) {
 					channelProcess.channelSum--;
 					channelProcess.channels.splice(index, 1);
-
-					return true;
 				}
 			}
 			// Create a client with the given user and join the channel

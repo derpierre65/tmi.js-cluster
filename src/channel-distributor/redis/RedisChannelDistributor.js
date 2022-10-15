@@ -42,6 +42,8 @@ class RedisChannelDistributor extends ChannelDistributor {
 	}
 
 	async unlockQueue() {
+		await super.unlockQueue();
+
 		return this.lock.release('handle-supervisor-queue');
 	}
 

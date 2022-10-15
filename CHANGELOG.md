@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking Change**: `throttle.join.every` and `throttle.clients.every` are now milliseconds instead of seconds.
 - **Breaking Change**: Renamed queue redis key from `join-handler` to `command-queue`.
 - Changed the way to rate limit the channel joins/parts. First join/part will start a `every`ms time window, within this window `allow` channels can be joined/parted.
+- Faster unlock queue if the command queue is empty.
 
 ### Removed
 - Removed setting `throttle.join.take` and `throttle.clients.take`.

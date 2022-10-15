@@ -12,21 +12,26 @@ class RedisPubSubChannelDistributor extends RedisChannelDistributor {
 
 		if (!SubRedisInstance) {
 			console.error('[tmi.js-cluster] No (sub) Redis client given.');
+			process.exit(0);
 		}
 
-		// subscribe with redis if a sub redis is available
-		if (process.env.TMI_CLUSTER_ROLE === 'tmi-client' && TmiClientInstance && SubRedisInstance) {
-			console.log('want subscribe');
+		// subscribe events for tmi-client
+		if (process.env.TMI_CLUSTER_ROLE === 'tmi-client') {
 			this._subscribeEvent(CommandQueue.COMMAND_JOIN, this._onJoin);
 			this._subscribeEvent(CommandQueue.COMMAND_PART, this._onPart);
 			this._subscribeEvent(CommandQueue.CREATE_CLIENT, this._onClientCreate);
 		}
+		// subscribe events for supervsior
 		else if (process.env.TMI_CLUSTER_ROLE === 'supervisor') {
-			SubRedisInstance.subscribe(getRedisKey(`event:${CommandQueue.COMMAND_QUEUE}`), this._onQueueCommand.bind(this));
-			SupervisorInstance.on(`rate-limit.tmi`, () => {
-				this.executeQueue();
-			});
+			SubRedisInstance.subscribe(getRedisKey(`events:${CommandQueue.COMMAND_QUEUE}`), this._onQueueCommand.bind(this));
+			SupervisorInstance.on(`rate-limit.tmi`, this._onQueueCommand.bind(this));
 		}
+	}
+
+	_terminateSupervisor() {
+		super._terminateSupervisor();
+
+		SubRedisInstance.unsubscribe(getRedisKey(`events:${CommandQueue.COMMAND_QUEUE}`));
 	}
 
 	async _terminateClient() {
