@@ -227,7 +227,7 @@ class ChannelDistributor {
 		Promise
 			.all([
 				this._executeQueue('tmi', channelQueue),
-				this._executeQueue('client', clientQueue),
+				this._executeQueue('clients', clientQueue),
 			])
 			.then(() => {
 				this.unlockQueue();
