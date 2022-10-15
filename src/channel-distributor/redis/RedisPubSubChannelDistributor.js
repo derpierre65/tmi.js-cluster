@@ -1,10 +1,10 @@
-import * as Enum from '../../../lib/enums';
-import {CommandQueue} from '../../../lib/enums';
-import {getRedisKey} from '../../../lib/util';
-import {SupervisorInstance} from '../../../Supervisor';
-import {TmiClientInstance} from '../../../TmiClient';
-import {CommandQueueInstance} from '../../CommandQueue';
-import RedisChannelDistributor, {PubRedisInstance, SubRedisInstance} from '../RedisChannelDistributor';
+import * as Enum from '../../lib/enums';
+import {CommandQueue} from '../../lib/enums';
+import {getRedisKey} from '../../lib/util';
+import {SupervisorInstance} from '../../Supervisor';
+import {TmiClientInstance} from '../../TmiClient';
+import {CommandQueueInstance} from '../CommandQueue';
+import RedisChannelDistributor, {PubRedisInstance, SubRedisInstance} from './RedisChannelDistributor';
 
 class RedisPubSubChannelDistributor extends RedisChannelDistributor {
 	constructor(options) {
