@@ -4,7 +4,7 @@
   "description": "tmi.js-cluster is a scalable cluster for tmi.js. This cluster can have multiple supervisors that can be deployed on multiple servers.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "babel src --out-dir dist --copy-files --no-copy-ignored",
+    "build": "babel src --delete-dir-on-start --out-dir dist --copy-files --no-copy-ignored",
     "prepare": "npm run build",
     "watch": "nodemon --exec npm run build --watch src"
   },
