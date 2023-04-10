@@ -1,4 +1,5 @@
 import childProcess from 'child_process';
+import {formatDate} from './lib/date';
 import {ProcessPoolInstance} from './ProcessPool';
 import {SupervisorInstance} from './Supervisor';
 
@@ -17,6 +18,7 @@ export default class SubProcess {
 		this._process = childProcess.fork(SupervisorInstance.modulePath, {
 			env: Object.assign({}, process.env, {
 				PROCESS_ID: this.id,
+				SUPERVISOR_ID: SupervisorInstance.id,
 				TMI_CLUSTER: JSON.stringify(global.tmiClusterConfig),
 			}),
 		});
@@ -48,9 +50,10 @@ export default class SubProcess {
 		}
 
 		return new Promise((resolve, reject) => {
+			const now = formatDate(new Date());
 			SupervisorInstance.database.query('INSERT INTO tmi_cluster_supervisor_processes (??) VALUES (?);', [
 				['id', 'supervisor_id', 'state', 'channels', 'clients', 'metrics', 'last_ping_at', 'created_at', 'updated_at'],
-				[this.id, SupervisorInstance.id, 'STARTING', '[]', '[]', '{}', new Date(), new Date(), new Date()],
+				[this.id, SupervisorInstance.id, 'STARTING', '[]', '[]', '{}', now, now, now],
 			], (error) => {
 				if (error) {
 					console.error('[tmi.js-cluster] Fail to insert the process into database.', error);

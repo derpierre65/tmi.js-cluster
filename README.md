@@ -59,12 +59,12 @@ Each and every option listed below is optional.
 
 `process`:
 - `stale`: Number - The process will be marked to terminate if the last ping was more than `stale` seconds ago. (Default: `15`)
-- `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database and queued channels will be joined or parted. (Default: `2_000`)
+- `periodicTimer`: Number - After `periodicTimer` milliseconds the metrics will be saved into the database, queued commands and health check will be executed. (Default: `2_000`)
 - `timeout`: Number - If the process marked to terminate, after `timeout` milliseconds the process will be killed. (Default: `60_000`)
 - `terminateUncaughtException`: Boolean - If `true` the process will be terminated on uncaughtException. (Default: `true`)
 
 `multiClients`:
-- `enabled`: Boolean - If `true`, then the multi client feature is enabled. You should set it to `false` if you don't use that to save performance. (Default: `true`)
+- `enabled`: Boolean - If `true` then the multi client feature is enabled. You should set it to `false` if you don't use multi clients to save performance. (Default: `false`)
 
 `metrics`:
 - `enabled`: Boolean - If `true`, then metrics for every process will be generated and saved into the database. (Default: `true`)
@@ -77,11 +77,11 @@ Each and every option listed below is optional.
 - `thresholds`:
 	- `channels`: Number - The maximum target of channels per process. (Default: `2_000`)
 	- `scaleUp`: Number - If a supervisor reach more than `scaleUp`% channels then a new process will be created. (Default: `75`)
-	- `scaleDown`: Number - If a supervisor reach less than `scaleUp`% channels then one process will be terminated. (Default: `50`)
+	- `scaleDown`: Number - If a supervisor reach less than `scaleDown`% channels then one process will be terminated. (Default: `50`)
 
 `throttle`:
 - `join`:
-	- `allow`: Number - The maximum allowed join/part commands in `every`ms time window. (Default: `20`)
+	- `allow`: Number - The maximum join/part commands in `every`ms time window. (Default: `20`)
 	- `every`: Number - After this time the rate limit time window will be reset. (Default: `10_000`)
 - `clients`:
 	- `allow`: Number - The maximum of clients that can be created in the `every`ms time window. (Default: `50`)
@@ -125,14 +125,12 @@ Each and every option listed below is optional.
 	},
 	"throttle": {
 		"join": {
-			"allow": 2000,
-			"every": 10,
-			"take": 20
+			"allow": 20,
+			"every": 10000
 		},
 		"clients": {
-			"allow": 100,
-			"every": 10,
-			"take": 50
+			"allow": 50,
+			"every": 10000
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events';
 import {CommandQueueInstance} from './channel-distributor/CommandQueue';
+import {formatDate} from './lib/date';
 import * as Enum from './lib/enums';
 import {channelSanitize, unique, wait} from './lib/util';
 import SignalListener from './SignalListener';
@@ -80,7 +81,7 @@ class TmiClient extends EventEmitter {
 					metrics = JSON.stringify(this._metrics);
 				}
 
-				const now = new Date();
+				const now = formatDate(new Date());
 				this.database.query('UPDATE tmi_cluster_supervisor_processes SET state = ?, channels = ?, clients = ?, last_ping_at = ?, updated_at = ?, metrics = ? WHERE id = ?', [
 					currentState,
 					JSON.stringify(currentChannels),

@@ -4,6 +4,7 @@ import EventEmitter from 'node:events';
 import os from 'os';
 import path from 'path';
 import AutoScale from './AutoScale';
+import {formatDate} from './lib/date';
 import * as str from './lib/string';
 import ProcessPool from './ProcessPool';
 import SignalListener from './SignalListener';
@@ -59,7 +60,7 @@ class Supervisor extends EventEmitter {
 			},
 			throttle: {
 				join: {
-					// bot allow to join 20 channels every 10 seconds
+					// bot allow to join/part 20 channels every 10 seconds
 					allow: 20,
 					every: 10_000,
 				},
@@ -129,7 +130,7 @@ class Supervisor extends EventEmitter {
 				}
 
 				return new Promise((resolve, reject) => {
-					const now = new Date();
+					const now = formatDate(new Date());
 
 					this.database.query('INSERT INTO tmi_cluster_supervisors (??) VALUES (?)', [
 						['id', 'last_ping_at', 'metrics', 'options', 'created_at'],
@@ -161,7 +162,7 @@ class Supervisor extends EventEmitter {
 					}
 
 					this.database?.query('UPDATE tmi_cluster_supervisors SET last_ping_at = ? WHERE id = ?;', [
-						new Date(),
+						formatDate(new Date()),
 						this.id,
 					], (error) => {
 						if (error) {
